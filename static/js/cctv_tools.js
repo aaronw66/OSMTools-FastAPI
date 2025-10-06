@@ -546,19 +546,29 @@ function showResultsModal(title, results) {
         results.forEach(result => {
             const statusClass = result.status === 'success' ? 'online' : 'offline';
             const statusText = result.status === 'success' ? 'ONLINE' : 'OFFLINE';
-            const enableText = result.status === 'success' ? 'ENABLE' : 'DISABLE';
+            const enableText = result.enable !== false ? 'ENABLE' : 'DISABLE';
+            
+            // Format build date if it's in YYYYMMDD format
+            let buildDate = result.build_date || result.firmware || 'Unknown';
+            if (buildDate && buildDate.match(/^\d{8}/)) {
+                // Extract YYYYMMDD from the firmware string
+                const dateMatch = buildDate.match(/(\d{8})/);
+                if (dateMatch) {
+                    buildDate = dateMatch[1];
+                }
+            }
             
             html += `
                 <tr class="result-table-row">
                     <td class="result-ip">${result.ip || 'N/A'}</td>
                     <td><span class="status-badge status-${statusClass}">${statusText}</span></td>
                     <td><span class="enable-badge enable-${statusClass}">${enableText}</span></td>
-                    <td>${result.firmware || result.build_date || '20250829'}</td>
+                    <td>${buildDate}</td>
                     <td>${result.app_id || '20008185'}</td>
-                    <td>${result.room || result.device?.split('(')[0]?.trim() || 'N/A'}</td>
+                    <td>${result.room || 'N/A'}</td>
                     <td>${result.user || 'N/A'}</td>
                     <td class="usersig-cell">${result.userSig || result.user_sig || 'hmd5-xxxxx...'}</td>
-                    <td>${result.device_name || result.device || 'Unknown'}</td>
+                    <td>${result.device_name || result.room + '_CCTV (' + result.ip + ')' || 'Unknown'}</td>
                 </tr>
             `;
         });

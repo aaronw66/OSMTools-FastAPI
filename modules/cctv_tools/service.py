@@ -308,39 +308,100 @@ class CCTVToolsService:
     def _check_single_device_status(self, device: Dict) -> Dict:
         """Check status of a single CCTV device"""
         ip = device['ip']
+        room = device.get('room', 'Unknown')
+        user = device.get('user', 'admin')
+        user_sig = device.get('userSig', '')
         
         try:
-            # Simulate status check
-            time.sleep(random.uniform(0.2, 1.0))
+            # Try to connect to device API
+            # Common CCTV device endpoints: /api/v1/device/info or /cgi-bin/api.cgi
+            device_url = f"http://{ip}/api/v1/device/info"
             
-            # In real implementation, this would make HTTP request to device
-            # to check status, firmware version, uptime, etc.
+            response = requests.get(
+                device_url,
+                auth=HTTPDigestAuth(user, user_sig) if user_sig else None,
+                timeout=5
+            )
             
-            if self._simulate_device_response(ip):
-                firmware_version = random.choice(self.firmware_versions)['file']
-                uptime = f"{random.randint(1, 30)} days"
-                
-                return {
-                    'ip': ip,
-                    'status': 'success',
-                    'message': 'Device online',
-                    'firmware': firmware_version,
-                    'uptime': uptime,
-                    'timestamp': datetime.now().isoformat()
-                }
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    
+                    # Extract device information from response
+                    firmware = data.get('firmware', data.get('version', data.get('buildDate', 'Unknown')))
+                    device_name = data.get('deviceName', data.get('name', room))
+                    app_id = data.get('appId', data.get('applicationId', '20008185'))
+                    enable = data.get('enable', data.get('enabled', True))
+                    
+                    return {
+                        'ip': ip,
+                        'room': room,
+                        'user': user,
+                        'userSig': user_sig,
+                        'status': 'success',
+                        'message': 'Device online',
+                        'firmware': firmware,
+                        'build_date': firmware,  # Firmware version is the build date
+                        'app_id': app_id,
+                        'device_name': device_name,
+                        'enable': enable,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                except json.JSONDecodeError:
+                    # Device responded but not with JSON
+                    return {
+                        'ip': ip,
+                        'room': room,
+                        'user': user,
+                        'userSig': user_sig,
+                        'status': 'success',
+                        'message': 'Device online',
+                        'firmware': 'Unknown',
+                        'build_date': 'Unknown',
+                        'app_id': '20008185',
+                        'device_name': room,
+                        'enable': True,
+                        'timestamp': datetime.now().isoformat()
+                    }
             else:
                 return {
                     'ip': ip,
+                    'room': room,
+                    'user': user,
+                    'userSig': user_sig,
                     'status': 'error',
-                    'message': 'Device offline or not responding',
+                    'message': f'Device returned status code {response.status_code}',
                     'timestamp': datetime.now().isoformat()
                 }
                 
+        except requests.exceptions.Timeout:
+            return {
+                'ip': ip,
+                'room': room,
+                'user': user,
+                'userSig': user_sig,
+                'status': 'error',
+                'message': 'Device timeout - not responding',
+                'timestamp': datetime.now().isoformat()
+            }
+        except requests.exceptions.ConnectionError:
+            return {
+                'ip': ip,
+                'room': room,
+                'user': user,
+                'userSig': user_sig,
+                'status': 'error',
+                'message': 'Device offline or not reachable',
+                'timestamp': datetime.now().isoformat()
+            }
         except Exception as e:
             return {
                 'ip': ip,
+                'room': room,
+                'user': user,
+                'userSig': user_sig,
                 'status': 'error',
-                'message': f'Status check error: {str(e)}',
+                'message': f'Error: {str(e)}',
                 'timestamp': datetime.now().isoformat()
             }
     
@@ -420,12 +481,6 @@ class CCTVToolsService:
                 'timestamp': datetime.now().isoformat()
             }
     
-    def _simulate_device_response(self, ip: str) -> bool:
-        """Simulate device response based on IP (for development/testing)"""
-        # Create deterministic but varied responses based on IP
-        ip_hash = hashlib.md5(ip.encode()).hexdigest()
-        # 85% success rate for simulation
-        return int(ip_hash[:2], 16) < 217  # 217/255 ≈ 85%
     
     def batch_operation(self, operation: str, devices: List[Dict], **kwargs) -> Dict:
         """Perform batch operation on devices"""
