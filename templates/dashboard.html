@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSMTools v2.0 - Dashboard</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <link rel="icon" href="/static/zy.ico" type="image/x-icon">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🛠️ OSMTools v2.0</h1>
+            <p class="subtitle">Operational Support Management Tools</p>
+        </header>
+
+        <main class="main-content">
+            <div class="tools-grid">
+                <div class="tool-card">
+                    <div class="tool-icon">📊</div>
+                    <h3>Image Recon JSON</h3>
+                    <p>Generate JSON configurations for image recognition services</p>
+                    <a href="/image-recon-json" class="tool-button">Open Tool</a>
+                </div>
+
+                <div class="tool-card">
+                    <div class="tool-icon">🔄</div>
+                    <h3>Image Recon Service</h3>
+                    <p>Restart and manage image recognition services</p>
+                    <a href="/image-recon-service" class="tool-button">Open Tool</a>
+                </div>
+
+                <div class="tool-card">
+                    <div class="tool-icon">📹</div>
+                    <h3>CCTV Tools</h3>
+                    <p>Manage CCTV configurations and monitoring</p>
+                    <a href="/cctv-tools" class="tool-button">Open Tool</a>
+                </div>
+
+                <div class="tool-card">
+                    <div class="tool-icon">🖥️</div>
+                    <h3>OSMachine</h3>
+                    <p>Machine restart and management operations</p>
+                    <a href="/osmachine" class="tool-button">Open Tool</a>
+                </div>
+
+                <div class="tool-card">
+                    <div class="tool-icon">⚙️</div>
+                    <h3>Config Editor</h3>
+                    <p>Edit JSON and XML configuration files</p>
+                    <a href="/config-editor" class="tool-button">Open Tool</a>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2024 OSMTools v2.0 - Powered by FastAPI</p>
+        </footer>
+    </div>
+
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

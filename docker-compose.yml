@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  osmtools:
+    build: .
+    ports:
+      - "6969:6969"
+    volumes:
+      - ./static:/app/static
+      - ./logs:/app/logs
+      - ./type:/app/type
+      - ./uploads:/app/uploads
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+
+  # Optional: Add Redis for background tasks (future enhancement)
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   restart: unless-stopped

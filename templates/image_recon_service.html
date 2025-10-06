@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>Image Recognition Service Manager</title>
+    <link rel="stylesheet" href="/static/css/common.css?v=2">
+    <link rel="stylesheet" href="/static/css/image_recon_service.css?v=2">
+    <link rel="icon" href="/static/zy.ico" type="image/x-icon">
+</head>
+<body>
+    <!-- Top Navigation -->
+    <nav class="navbar">
+        <h1 class="navbar-brand">OSMTools</h1>
+        <div class="navbar-nav">
+            <a href="/image-recon-json" class="nav-item">
+                <span class="nav-item-icon">📊</span>
+                Image Recon JSON
+            </a>
+            <a href="/image-recon-service" class="nav-item active">
+                <span class="nav-item-icon">🔄</span>
+                Image Recon Service
+            </a>
+            <a href="/cctv-tools" class="nav-item">
+                <span class="nav-item-icon">📹</span>
+                CCTV Tools
+            </a>
+            <a href="/osmachine" class="nav-item">
+                <span class="nav-item-icon">🖥️</span>
+                OSMachine
+            </a>
+            <a href="/config-editor" class="nav-item">
+                <span class="nav-item-icon">⚙️</span>
+                Config Editor
+            </a>
+        </div>
+    </nav>
+
+    <!-- Search Container -->
+    <div class="search-container">
+        <input type="text" id="searchBox" placeholder="🔍 Find Machine..." />
+        <div class="search-actions">
+            <button id="refreshBtn" class="action-btn" onclick="refreshServers()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button id="updateAllBtn" class="action-btn update-btn" onclick="showUpdateModal()">
+                <i class="fas fa-download"></i> Update All
+            </button>
+            <button id="emailBtn" class="action-btn email-btn" onclick="showEmailModal()">
+                <i class="fas fa-envelope"></i> Email Settings
+            </button>
+        </div>
+        <div id="searchResults" class="search-results"></div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        <header class="content-header">
+            <h1 class="content-title">Image Recognition Service Manager</h1>
+            <p class="content-subtitle">Please search the machine, and it will lead you to the according server.</p>
+            <div class="underline"></div>
+        </header>
+
+        <main class="content-body">
+            <div id="server-container">
+                <!-- Server groups will be loaded here -->
+                <div class="loading-state">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading servers...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Logs Modal -->
+    <div id="logsModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h3><i class="fas fa-file-alt"></i> <span id="serverTitle">Server Logs</span></h3>
+            <div id="logs">
+                <div class="loading-state">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <div>Loading logs...</div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="restartService()">
+                    <i class="fas fa-redo"></i> Restart Service
+                </button>
+                <button class="btn btn-secondary" onclick="refreshLogs()">
+                    <i class="fas fa-sync-alt"></i> Refresh Logs
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Modal -->
+    <div id="messageModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeMessageModal()">&times;</span>
+            <h3>Service Status</h3>
+            <div id="message"></div>
+        </div>
+    </div>
+
+    <!-- Update Modal -->
+    <div id="updateModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeUpdateModal()">&times;</span>
+            <h3><i class="fas fa-download"></i> Batch Update Servers</h3>
+            <div class="update-content">
+                <p>Select servers to update and optionally provide an update file:</p>
+                
+                <div class="form-group">
+                    <label for="updateFile">Update File (optional):</label>
+                    <input type="file" id="updateFile" accept=".tar.gz,.zip,.deb">
+                </div>
+
+                <div class="server-selection">
+                    <h4>Select Servers:</h4>
+                    <div id="updateServerList">
+                        <!-- Server checkboxes will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="closeUpdateModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="startBatchUpdate()">
+                        <i class="fas fa-download"></i> Start Update
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Settings Modal -->
+    <div id="emailModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEmailModal()">&times;</span>
+            <h3><i class="fas fa-envelope"></i> Email Settings</h3>
+            <div class="email-content">
+                
+                <!-- Current Recipients -->
+                <div class="email-section">
+                    <h4><i class="fas fa-users"></i> Current Recipients</h4>
+                    <div id="recipientsList">
+                        <!-- Recipients will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Add New Recipient -->
+                <div class="email-section">
+                    <h4><i class="fas fa-user-plus"></i> Add New Recipient</h4>
+                    <div class="form-group">
+                        <input type="email" id="newRecipientEmail" placeholder="Enter email address">
+                        <button class="btn btn-primary" onclick="addEmailRecipient()">
+                            <i class="fas fa-plus"></i> Add
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Send Test Email -->
+                <div class="email-section">
+                    <h4><i class="fas fa-paper-plane"></i> Send Test Email</h4>
+                    <div class="form-group">
+                        <textarea id="testEmailMessage" placeholder="Enter test message..." rows="3"></textarea>
+                        <button class="btn btn-secondary" onclick="sendTestEmail()">
+                            <i class="fas fa-paper-plane"></i> Send Test
+                        </button>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="closeEmailModal()">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Modal -->
+    <div id="progressModal" class="modal">
+        <div class="modal-content">
+            <h3><i class="fas fa-tasks"></i> Operation Progress</h3>
+            <div class="progress-content">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">Starting...</div>
+                <div class="progress-details" id="progressDetails"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/common.js?v=2"></script>
+    <script src="/static/js/image_recon_service.js?v=2"></script>
+</body>
+</html>

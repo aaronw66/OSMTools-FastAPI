@@ -1,0 +1,291 @@
+/* Image Recon JSON Specific Styles */
+
+.machine-type-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-top: 20px;
+}
+
+/* Force dark theme for machine type cards with high specificity */
+.card .machine-type-actions .add-machine-type,
+.card .machine-type-actions .remove-machine-type,
+.add-machine-type,
+.remove-machine-type {
+    padding: 20px !important;
+    background: #1a1a1a !important;
+    background-color: #1a1a1a !important;
+    border-radius: 10px !important;
+    border-left: 4px solid #4a9eff !important;
+    border: 1px solid #404040 !important;
+    color: #e0e0e0 !important;
+}
+
+.add-machine-type h3,
+.remove-machine-type h3 {
+    color: #f0f6fc !important;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #404040;
+    padding-bottom: 8px;
+}
+
+/* Form elements inside machine type cards */
+.add-machine-type input,
+.add-machine-type select,
+.remove-machine-type input,
+.remove-machine-type select {
+    background: #2d2d2d !important;
+    border: 1px solid #404040 !important;
+    color: #e0e0e0 !important;
+    border-radius: 4px;
+    padding: 8px 12px;
+}
+
+.add-machine-type input:focus,
+.add-machine-type select:focus,
+.remove-machine-type input:focus,
+.remove-machine-type select:focus {
+    border-color: #4a9eff !important;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+}
+
+.form-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.form-row input,
+.form-row select {
+    flex: 1;
+    min-width: 120px;
+}
+
+/* Placeholder styling for machine type inputs */
+.add-machine-type input::placeholder,
+.remove-machine-type input::placeholder {
+    color: #8b949e !important;
+}
+
+.add-machine-type option,
+.remove-machine-type option {
+    background: #2d2d2d !important;
+    color: #e0e0e0 !important;
+}
+
+.json-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+#jsonOutput {
+    background: #0d1117;
+    border: 2px solid #30363d;
+    border-radius: 8px;
+    padding: 20px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #f0f6fc;
+    max-height: 600px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+#jsonOutputCard {
+    animation: slideIn 0.5s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Server Selection Styles */
+.server-item {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    margin-bottom: 10px;
+    background: #2d2d2d;
+    border-radius: 8px;
+    border: 2px solid #404040;
+    transition: all 0.3s ease;
+    color: #e0e0e0;
+}
+
+.server-item:hover {
+    background: #3a3a3a;
+    border-color: #4a9eff;
+}
+
+.server-item.selected {
+    border-color: #4a9eff;
+    background: rgba(74, 158, 255, 0.1);
+}
+
+.server-checkbox {
+    margin-right: 15px;
+    transform: scale(1.2);
+}
+
+.server-info {
+    flex: 1;
+}
+
+.server-hostname {
+    font-weight: 600;
+    color: #f0f6fc;
+    margin-bottom: 5px;
+}
+
+.server-details {
+    font-size: 14px;
+    color: #b0b0b0;
+}
+
+.server-label {
+    display: inline-block;
+    background: #4a9eff;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-left: 10px;
+}
+
+/* Results Display */
+.result-item {
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    border-left: 4px solid;
+    background: #2d2d2d;
+}
+
+.result-success {
+    background: #2d2d2d;
+    border-color: #238636;
+    color: #7ee787;
+}
+
+.result-error {
+    background: #2d2d2d;
+    border-color: #da3633;
+    color: #ff7b72;
+}
+
+.result-server {
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.result-message {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+/* File Upload Styling */
+.form-group input[type="file"] {
+    border: 2px dashed #404040;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #2d2d2d;
+    color: #e0e0e0;
+    border-radius: 6px;
+}
+
+.form-group input[type="file"]:hover {
+    border-color: #4a9eff;
+    background: rgba(74, 158, 255, 0.05);
+}
+
+.form-group input[type="file"]:focus {
+    border-color: #4a9eff;
+    border-style: solid;
+    outline: none;
+}
+
+/* Progress Indicator */
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: #404040;
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4a9eff, #238636);
+    width: 0%;
+    transition: width 0.3s ease;
+    border-radius: 3px;
+}
+
+/* Status Indicators */
+.status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.status-success {
+    background: #238636;
+}
+
+.status-error {
+    background: #da3633;
+}
+
+.status-pending {
+    background: #d29922;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .machine-type-actions {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .json-actions {
+        flex-direction: column;
+    }
+    
+    .json-actions .btn {
+        width: 100%;
+    }
+    
+    #jsonOutput {
+        font-size: 12px;
+        max-height: 300px;
+    }
+    
+    .server-item {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+    }
+    
+    .server-checkbox {
+        margin-bottom: 10px;
+    }
+}

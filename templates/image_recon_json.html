@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Recon JSON Generator</title>
+    <link rel="stylesheet" href="/static/css/common.css?v=2">
+    <link rel="stylesheet" href="/static/css/image_recon_json.css?v=2">
+    <link rel="icon" href="/static/zy.ico" type="image/x-icon">
+</head>
+<body>
+    <!-- Top Navigation -->
+    <nav class="navbar">
+        <h1 class="navbar-brand">OSMTools</h1>
+        <div class="navbar-nav">
+            <a href="/image-recon-json" class="nav-item active">
+                <span class="nav-item-icon">📊</span>
+                Image Recon JSON
+            </a>
+            <a href="/image-recon-service" class="nav-item">
+                <span class="nav-item-icon">🔄</span>
+                Image Recon Service
+            </a>
+            <a href="/cctv-tools" class="nav-item">
+                <span class="nav-item-icon">📹</span>
+                CCTV Tools
+            </a>
+            <a href="/osmachine" class="nav-item">
+                <span class="nav-item-icon">🖥️</span>
+                OSMachine
+            </a>
+            <a href="/config-editor" class="nav-item">
+                <span class="nav-item-icon">⚙️</span>
+                Config Editor
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        <header class="content-header">
+            <h1 class="content-title">Image Recon JSON Generator</h1>
+        </header>
+
+        <main class="content-body">
+            <!-- JSON Generator Form -->
+            <div class="card">
+                <h2>Generate JSON Configuration</h2>
+                <form id="jsonGeneratorForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="environment">Environment:</label>
+                        <select id="environment" name="environment" required>
+                            <option value="">Select Environment</option>
+                            <option value="qat">QAT</option>
+                            <option value="uat">UAT</option>
+                            <option value="prod">Production</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="location">Location:</label>
+                        <select id="location" name="location" required>
+                            <option value="">Select Location</option>
+                            <option value="CP">CP</option>
+                            <option value="WF">WF</option>
+                            <option value="TBR">TBR</option>
+                            <option value="TBP">TBP</option>
+                            <option value="LAVIE">LAVIE</option>
+                            <option value="MDR">MDR</option>
+                            <option value="DHS">DHS</option>
+                            <option value="NWR">NWR</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="channelID">Channel ID:</label>
+                        <input type="text" id="channelID" name="channelID" readonly placeholder="Select environment and location first" style="background-color: #333; color: #ccc;">
+                        <small>Channel ID is automatically set based on the selected environment and location</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="machineType">Machine Type:</label>
+                        <select id="machineType" name="machineType" required>
+                            <option value="">Select Machine Type</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="poolType">Pool Type:</label>
+                        <input type="number" id="poolType" name="poolType" value="0" min="0">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="screenType">Screen Type:</label>
+                        <select id="screenType" name="screenType">
+                            <option value="DUAL">Dual Screen</option>
+                            <option value="SINGLE">Single Screen</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="streams_file">Streams CSV File:</label>
+                        <input type="file" id="streams_file" name="streams_file" accept=".csv" required>
+                        <small>Upload a CSV file containing stream information</small>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Generate JSON</button>
+                </form>
+            </div>
+
+            <!-- Machine Type Management -->
+            <div class="card">
+                <h2>Machine Type Management</h2>
+                
+                <div class="machine-type-actions">
+                    <div class="add-machine-type">
+                        <h3>Add Machine Type</h3>
+                        <form id="addMachineTypeForm">
+                            <div class="form-row">
+                                <input type="text" id="newMachineType" name="machineType" placeholder="Machine Type" required>
+                                <input type="number" id="newGameType" name="gameType" placeholder="Game Type" min="0" max="99" required>
+                                <button type="submit" class="btn btn-success">Add</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="remove-machine-type">
+                        <h3>Remove Machine Type</h3>
+                        <form id="removeMachineTypeForm">
+                            <div class="form-row">
+                                <select id="removeMachineType" name="machineType" required>
+                                    <option value="">Select to Remove</option>
+                                </select>
+                                <button type="submit" class="btn btn-danger">Remove</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- JSON Output -->
+            <div class="card" id="jsonOutputCard" style="display: none;">
+                <h2>Generated JSON</h2>
+                <div class="json-actions">
+                    <button id="downloadBtn" class="btn btn-primary">Download JSON</button>
+                    <button id="sendToServersBtn" class="btn btn-secondary">Send to Servers</button>
+                </div>
+                <pre id="jsonOutput"></pre>
+            </div>
+
+            <!-- Server Selection Modal -->
+            <div id="serverModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Select Servers</h3>
+                        <span class="close">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="remotePath">Remote Path:</label>
+                            <input type="text" id="remotePath" value="/usr/bin/OSMWatcher/list-new.json">
+                        </div>
+                        <div id="serverList"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="sendJsonBtn" class="btn btn-primary">Send JSON</button>
+                        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Modal -->
+            <div id="resultsModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Send Results</h3>
+                        <span class="close">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div id="sendResults"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-primary" onclick="closeResultsModal()">Close</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+        <script src="/static/js/common.js?v=2"></script>
+        <script src="/static/js/image_recon_json.js?v=2"></script>
+</body>
+</html>

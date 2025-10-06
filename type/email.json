@@ -1,0 +1,18 @@
+{
+  "recipients": [
+    "vhchong@snsoft.my",
+    "aaronw@snsoft.my",
+    "eric.wu@toppath.tw",
+    "dave.cheng@toppath.tw",
+    "waiming@snsoft.my",
+    "albert@snsoft.my"
+  ],
+  "schedule": {
+    "enabled": true,
+    "day": "monday",
+    "time": "09:30",
+    "timezone": "Asia/Kuala_Lumpur",
+    "last_run": "2025-09-22 09:30:13",
+    "next_run": "2025-09-29 09:30:00"
+  }
+}
