@@ -1,214 +1,513 @@
-/* CCTV Tools Specific Styles - Dark Theme */
+/* CCTV Tools Specific Styles - Matching the design shown */
 
-.status-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-    margin-bottom: 20px;
+/* Override body background for CCTV Tools */
+body {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
 }
 
-.status-item {
-    background: #2d2d2d !important;
-    padding: 20px;
-    border-radius: 10px;
+/* Main Container */
+.main-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: calc(100vh - 120px);
+    padding: 40px 20px;
+    margin-top: 80px;
+}
+
+/* CCTV Card - Main centered card */
+.cctv-card {
+    background: linear-gradient(135deg, #f8f9fa, #ffffff);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e9ecef;
+    width: 100%;
+    max-width: 500px;
+    overflow: hidden;
+}
+
+.card-header {
     text-align: center;
-    border-left: 4px solid #4a9eff;
-    border: 1px solid #404040;
+    padding: 30px 25px 15px;
+    background: transparent;
+    border-bottom: 1px solid #e9ecef;
 }
 
-.status-label {
-    font-size: 14px;
-    color: #b0b0b0 !important;
-    margin-bottom: 10px;
+.card-title {
+    font-size: 1.5rem;
     font-weight: 600;
+    color: #495057;
+    margin-bottom: 8px;
 }
 
-.status-value {
-    font-size: 24px;
-    font-weight: bold;
-    color: #f0f6fc !important;
-}
-
-.status-value.operational {
-    color: #238636 !important;
-}
-
-.status-value.warning {
-    color: #d29922 !important;
-}
-
-.status-value.error {
-    color: #da3633 !important;
-}
-
-.config-tools {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 30px;
-}
-
-.tool-section {
-    padding: 20px;
-    background: #2d2d2d !important;
-    border-radius: 10px;
-    border-left: 4px solid #238636;
-    border: 1px solid #404040;
-}
-
-.tool-section h3 {
-    margin-bottom: 20px;
-    color: #f0f6fc !important;
-    border-bottom: 1px solid #404040;
-    padding-bottom: 10px;
-}
-
-.camera-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 15px;
-    margin-top: 20px;
-}
-
-.camera-item {
-    background: #1a1a1a !important;
-    padding: 15px;
-    border-radius: 8px;
-    border: 1px solid #404040;
-    transition: all 0.3s ease;
-}
-
-.camera-item:hover {
-    box-shadow: 0 4px 12px rgba(74, 158, 255, 0.2);
-    border-color: #4a9eff;
-}
-
-.camera-name {
-    font-weight: 600;
-    margin-bottom: 10px;
-    color: #f0f6fc !important;
-}
-
-.camera-details {
-    font-size: 14px;
-    color: #b0b0b0 !important;
+.card-subtitle {
+    font-size: 0.9rem;
+    color: #6c757d;
     line-height: 1.4;
 }
 
-.camera-status {
-    display: inline-block;
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-size: 12px;
+.card-body {
+    padding: 25px;
+}
+
+/* Form Sections */
+.form-section {
+    margin-bottom: 20px;
+}
+
+.form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.form-label {
+    font-size: 0.9rem;
     font-weight: 600;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.required {
+    color: #dc3545;
+}
+
+/* File Upload */
+.file-upload-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.file-upload-btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 13px;
+}
+
+.file-upload-btn:hover {
+    background: #0056b3;
+}
+
+.file-status {
+    color: #6c757d;
+    font-size: 13px;
+    flex: 1;
+    min-width: 100px;
+}
+
+.download-sample-btn {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.download-sample-btn:hover {
+    background: #218838;
+}
+
+/* CSV Info */
+.csv-info {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 12px;
     margin-top: 8px;
 }
 
-.camera-status.configured {
-    background: rgba(35, 134, 54, 0.2);
-    color: #7ee787;
+.csv-info p {
+    color: #6c757d;
+    margin-bottom: 8px;
+    font-size: 13px;
 }
 
-.camera-status.active {
-    background: rgba(74, 158, 255, 0.2);
-    color: #79c0ff;
+.csv-format {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.3;
 }
 
-.camera-status.error {
-    background: rgba(218, 54, 51, 0.2);
-    color: #ff7b72;
+.csv-format code {
+    color: #495057;
+    background: none;
+    padding: 0;
 }
 
-/* CSV Processing Results */
-.csv-results {
-    max-height: 400px;
+/* Form Select */
+.form-select {
+    background: white;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: #495057;
+    font-size: 13px;
+    outline: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    width: 100%;
+}
+
+.form-select:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.form-select option {
+    background: white;
+    color: #495057;
+    padding: 8px;
+}
+
+.form-help {
+    color: #6c757d;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 8px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    color: white;
+    min-height: 60px;
+    font-size: 13px;
+}
+
+.action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.action-btn:active {
+    transform: translateY(0);
+}
+
+.btn-icon {
+    font-size: 1.2rem;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.btn-text {
+    font-size: 12px;
+    font-weight: 500;
+    text-align: center;
+}
+
+/* Button Colors - Matching original design */
+.configure-btn {
+    background: #28a745;
+}
+
+.configure-btn:hover {
+    background: #218838;
+}
+
+.update-btn {
+    background: #6c757d;
+}
+
+.update-btn:hover {
+    background: #5a6268;
+}
+
+.status-btn {
+    background: #17a2b8;
+}
+
+.status-btn:hover {
+    background: #138496;
+}
+
+.reboot-btn {
+    background: #dc3545;
+}
+
+.reboot-btn:hover {
+    background: #c82333;
+}
+
+/* Footer */
+.footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(26, 26, 26, 0.95);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid #404040;
+    padding: 15px;
+    text-align: center;
+    z-index: 100;
+}
+
+.footer-text {
+    color: #8b949e;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    background: linear-gradient(135deg, #2d2d2d, #1a1a1a);
+    margin: 5% auto;
+    padding: 30px;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
     overflow-y: auto;
     border: 1px solid #404040;
-    border-radius: 8px;
-    padding: 15px;
-    background: #2d2d2d !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    position: relative;
 }
 
-.csv-item {
-    padding: 10px;
+.modal-content h3 {
+    color: #f0f6fc;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.5rem;
+}
+
+.close {
+    color: #8b949e;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    transition: color 0.3s ease;
+}
+
+.close:hover {
+    color: #f0f6fc;
+}
+
+/* Progress Modal */
+.progress-content {
+    padding: 20px 0;
+    text-align: center;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 20px;
+    background: #404040;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 15px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #4a9eff, #0969da);
+    width: 0%;
+    transition: width 0.3s ease;
+    border-radius: 10px;
+}
+
+.progress-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #f0f6fc;
     margin-bottom: 10px;
-    background: #1a1a1a !important;
-    border-radius: 5px;
-    border-left: 3px solid #238636;
-    color: #e0e0e0;
 }
 
-.csv-item-header {
-    font-weight: 600;
-    margin-bottom: 5px;
-    color: #f0f6fc !important;
+.progress-details {
+    font-size: 0.9rem;
+    color: #8b949e;
+    line-height: 1.4;
 }
 
-.csv-item-details {
-    font-size: 14px;
-    color: #b0b0b0 !important;
-}
-
-/* Monitoring Configuration */
-.monitoring-config {
-    background: #2d2d2d !important;
-    padding: 20px;
+/* Results Content */
+.results-content {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 15px;
+    background: #1a1a1a;
     border-radius: 8px;
-    margin-top: 20px;
     border: 1px solid #404040;
+    margin-bottom: 20px;
 }
 
-.config-summary {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 15px;
-    margin-top: 15px;
+.result-item {
+    padding: 12px;
+    margin-bottom: 10px;
+    background: #2d2d2d;
+    border-radius: 6px;
+    border-left: 4px solid #4a9eff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.config-item {
-    text-align: center;
-    padding: 10px;
-    background: #1a1a1a !important;
-    border-radius: 5px;
-    border: 1px solid #404040;
+.result-item.success {
+    border-left-color: #28a745;
 }
 
-.config-label {
-    font-size: 12px;
-    color: #b0b0b0 !important;
-    margin-bottom: 5px;
+.result-item.error {
+    border-left-color: #dc3545;
 }
 
-.config-value {
+.result-item.warning {
+    border-left-color: #ffc107;
+}
+
+.result-device {
     font-weight: 600;
-    color: #f0f6fc !important;
+    color: #f0f6fc;
 }
 
-/* Progress and Loading States */
-.processing {
-    text-align: center;
-    padding: 40px;
-    color: #b0b0b0 !important;
+.result-status {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-weight: 600;
 }
 
-.processing .loading {
-    margin-right: 10px;
+.result-status.success {
+    background: rgba(40, 167, 69, 0.2);
+    color: #28a745;
+}
+
+.result-status.error {
+    background: rgba(220, 53, 69, 0.2);
+    color: #dc3545;
+}
+
+.result-status.warning {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+}
+
+/* Modal Actions */
+.modal-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    .status-grid {
-        grid-template-columns: 1fr;
+    .main-container {
+        padding: 10px;
+        margin-top: 90px;
     }
     
-    .config-tools {
-        grid-template-columns: 1fr;
+    .cctv-card {
+        max-width: 100%;
     }
     
-    .camera-grid {
-        grid-template-columns: 1fr;
+    .card-header {
+        padding: 30px 20px 15px;
     }
     
-    .config-summary {
+    .card-title {
+        font-size: 1.5rem;
+    }
+    
+    .card-body {
+        padding: 20px;
+    }
+    
+    .action-buttons {
         grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .file-upload-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .file-upload-btn,
+    .download-sample-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+        padding: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .card-title {
+        font-size: 1.3rem;
+    }
+    
+    .card-subtitle {
+        font-size: 0.9rem;
+    }
+    
+    .action-btn {
+        min-height: 70px;
+        padding: 15px 10px;
+    }
+    
+    .btn-icon {
+        font-size: 1.3rem;
+    }
+    
+    .btn-text {
+        font-size: 13px;
     }
 }

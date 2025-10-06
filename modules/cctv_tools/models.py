@@ -1,21 +1,39 @@
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import List, Optional
+
+class CCTVDevice(BaseModel):
+    ip: str
+    room: str
+    user: str
+    userSig: str
 
 class CCTVConfigRequest(BaseModel):
-    config_type: str
-    parameters: Dict[str, Any]
+    devices: List[CCTVDevice]
+    firmware_version: str
+    operation_type: Optional[str] = "configure"
 
 class CCTVBatchRequest(BaseModel):
-    operation: str
-    targets: List[str]
-    config: Optional[Dict[str, Any]] = None
+    operation: str  # configure, update, status, reboot
+    devices: List[CCTVDevice]
+    firmware_version: Optional[str] = None
 
-class CCTVResponse(BaseModel):
-    status: str
+class CCTVStatusRequest(BaseModel):
+    devices: List[CCTVDevice]
+
+class CCTVRebootRequest(BaseModel):
+    devices: List[CCTVDevice]
+
+class FirmwareVersion(BaseModel):
+    name: str
+    file: str
+    size: Optional[str] = None
+    date: Optional[str] = None
+
+class OperationResult(BaseModel):
+    device: str
+    ip: str
+    status: str  # success, error, warning
     message: str
-    data: Optional[Dict[str, Any]] = None
-
-class CCTVBatchResponse(BaseModel):
-    status: str
-    results: List[Dict[str, Any]]
     timestamp: str
+    firmware: Optional[str] = None
+    uptime: Optional[str] = None

@@ -1,260 +1,442 @@
-// CCTV Tools JavaScript
+// CCTV Tools JavaScript - Based on original cctv_tool.py functionality
 
+let uploadedDevices = [];
+let currentOperation = null;
+let operationResults = [];
+
+// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    initializeCCTVTools();
+    loadFirmwareVersions();
+    setupFileUpload();
+    setupEventListeners();
 });
 
-function initializeCCTVTools() {
-    setupEventListeners();
-    loadSystemStatus();
+// =====================
+// 🔧 Initialization
+// =====================
+function setupFileUpload() {
+    const fileInput = document.getElementById('csvFile');
+    const fileStatus = document.getElementById('fileStatus');
+    
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            fileStatus.textContent = file.name;
+            parseCSVFile(file);
+        } else {
+            fileStatus.textContent = 'No file chosen';
+            uploadedDevices = [];
+        }
+    });
 }
 
 function setupEventListeners() {
-    // Status refresh
-    document.getElementById('refreshStatusBtn').addEventListener('click', loadSystemStatus);
+    // Close modals when clicking outside
+    window.addEventListener('click', function(event) {
+        const modals = ['progressModal', 'resultsModal'];
+        modals.forEach(modalId => {
+            const modal = document.getElementById(modalId);
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    });
     
-    // Configuration tools
-    document.getElementById('setupCamerasBtn').addEventListener('click', setupCameras);
-    document.getElementById('configMonitoringBtn').addEventListener('click', configureMonitoring);
-    
-    // CSV upload
-    document.getElementById('csvUploadForm').addEventListener('submit', handleCSVUpload);
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeAllModals();
+        }
+    });
 }
 
-async function loadSystemStatus() {
-    const refreshBtn = document.getElementById('refreshStatusBtn');
-    const stopLoading = CommonUtils.showLoading(refreshBtn);
-    
+async function loadFirmwareVersions() {
     try {
-        const response = await CommonUtils.apiRequest('/cctv-tools/status');
+        const response = await fetch('/cctv-tools/get-firmware-versions');
+        const data = await response.json();
         
-        if (response.status === 'success') {
-            displaySystemStatus(response.data);
-            CommonUtils.showAlert('Status updated successfully!', 'success');
+        const select = document.getElementById('firmwareVersion');
+        select.innerHTML = '<option value="">Select firmware version...</option>';
+        
+        if (data.status === 'success' && data.versions) {
+            data.versions.forEach(version => {
+                const option = document.createElement('option');
+                option.value = version.file;
+                option.textContent = version.name;
+                select.appendChild(option);
+            });
         } else {
-            throw new Error(response.message || 'Failed to load status');
+            // Add some default versions for development
+            const defaultVersions = [
+                { file: 'v3.1.2306-1.dingzhi.update', name: 'Version 3.1.2306-1' },
+                { file: 'v3.2.2401-2.dingzhi.update', name: 'Version 3.2.2401-2' },
+                { file: 'v3.3.2405-1.dingzhi.update', name: 'Version 3.3.2405-1' }
+            ];
+            
+            defaultVersions.forEach(version => {
+                const option = document.createElement('option');
+                option.value = version.file;
+                option.textContent = version.name;
+                select.appendChild(option);
+            });
         }
-        
     } catch (error) {
-        console.error('Failed to load status:', error);
-        CommonUtils.showAlert(`Failed to load status: ${error.message}`, 'error');
-    } finally {
-        stopLoading();
+        console.error('Error loading firmware versions:', error);
+        CommonUtils.showAlert('Failed to load firmware versions', 'error');
     }
 }
 
-function displaySystemStatus(data) {
-    document.getElementById('systemStatusValue').textContent = data.system_status;
-    document.getElementById('systemStatusValue').className = `status-value ${data.system_status}`;
+// =====================
+// 📁 File Handling
+// =====================
+function parseCSVFile(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const csv = e.target.result;
+        const lines = csv.split('\n');
+        const devices = [];
+        
+        // Skip header row and parse data
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line) {
+                const columns = line.split(',');
+                if (columns.length >= 4) {
+                    devices.push({
+                        ip: columns[0].trim(),
+                        room: columns[1].trim(),
+                        user: columns[2].trim(),
+                        userSig: columns[3].trim()
+                    });
+                }
+            }
+        }
+        
+        uploadedDevices = devices;
+        CommonUtils.showAlert(`Loaded ${devices.length} devices from CSV`, 'success');
+    };
     
-    document.getElementById('activeCameras').textContent = `${data.active_cameras}/${data.total_cameras}`;
-    document.getElementById('storageUsage').textContent = data.storage_usage;
-    document.getElementById('alertCount').textContent = data.alerts;
+    reader.onerror = function() {
+        CommonUtils.showAlert('Error reading CSV file', 'error');
+    };
     
-    // Add status classes based on values
-    const alertElement = document.getElementById('alertCount');
-    if (data.alerts > 0) {
-        alertElement.className = 'status-value warning';
+    reader.readAsText(file);
+}
+
+function downloadSample() {
+    const sampleCSV = `IP,Room,User,UserSig
+192.168.1.100,Room01,user1,signature1
+192.168.1.101,Room02,user2,signature2
+192.168.1.102,Room03,user3,signature3`;
+    
+    const blob = new Blob([sampleCSV], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sample_cctv.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+
+// =====================
+// 🎛️ Device Operations
+// =====================
+async function configureDevices() {
+    if (!validateOperation()) return;
+    
+    currentOperation = 'configure';
+    showProgressModal('Configuring Devices', 'Starting device configuration...');
+    
+    try {
+        const response = await fetch('/cctv-tools/configure-devices', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                devices: uploadedDevices,
+                firmware_version: document.getElementById('firmwareVersion').value
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            operationResults = data.results;
+            hideProgressModal();
+            showResultsModal('Device Configuration Results', data.results);
+        } else {
+            hideProgressModal();
+            CommonUtils.showAlert('Configuration failed: ' + data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Configuration error:', error);
+        hideProgressModal();
+        CommonUtils.showAlert('Configuration error: ' + error.message, 'error');
+    }
+}
+
+async function updateFirmware() {
+    if (!validateOperation()) return;
+    
+    currentOperation = 'update';
+    showProgressModal('Updating Firmware', 'Starting firmware update...');
+    
+    try {
+        const response = await fetch('/cctv-tools/update-firmware', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                devices: uploadedDevices,
+                firmware_version: document.getElementById('firmwareVersion').value
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            operationResults = data.results;
+            hideProgressModal();
+            showResultsModal('Firmware Update Results', data.results);
+        } else {
+            hideProgressModal();
+            CommonUtils.showAlert('Firmware update failed: ' + data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Firmware update error:', error);
+        hideProgressModal();
+        CommonUtils.showAlert('Firmware update error: ' + error.message, 'error');
+    }
+}
+
+async function checkStatus() {
+    if (uploadedDevices.length === 0) {
+        CommonUtils.showAlert('Please upload a CSV file with device information first', 'error');
+        return;
+    }
+    
+    currentOperation = 'status';
+    showProgressModal('Checking Status', 'Checking device status...');
+    
+    try {
+        const response = await fetch('/cctv-tools/check-status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                devices: uploadedDevices
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            operationResults = data.results;
+            hideProgressModal();
+            showResultsModal('Device Status Check Results', data.results);
+        } else {
+            hideProgressModal();
+            CommonUtils.showAlert('Status check failed: ' + data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Status check error:', error);
+        hideProgressModal();
+        CommonUtils.showAlert('Status check error: ' + error.message, 'error');
+    }
+}
+
+async function rebootDevices() {
+    if (uploadedDevices.length === 0) {
+        CommonUtils.showAlert('Please upload a CSV file with device information first', 'error');
+        return;
+    }
+    
+    const confirmed = confirm(`Are you sure you want to reboot ${uploadedDevices.length} device(s)?`);
+    if (!confirmed) return;
+    
+    currentOperation = 'reboot';
+    showProgressModal('Rebooting Devices', 'Sending reboot commands...');
+    
+    try {
+        const response = await fetch('/cctv-tools/reboot-devices', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                devices: uploadedDevices
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            operationResults = data.results;
+            hideProgressModal();
+            showResultsModal('Device Reboot Results', data.results);
+        } else {
+            hideProgressModal();
+            CommonUtils.showAlert('Reboot failed: ' + data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Reboot error:', error);
+        hideProgressModal();
+        CommonUtils.showAlert('Reboot error: ' + error.message, 'error');
+    }
+}
+
+// =====================
+// ✅ Validation
+// =====================
+function validateOperation() {
+    if (uploadedDevices.length === 0) {
+        CommonUtils.showAlert('Please upload a CSV file with device information first', 'error');
+        return false;
+    }
+    
+    const firmwareVersion = document.getElementById('firmwareVersion').value;
+    if (!firmwareVersion) {
+        CommonUtils.showAlert('Please select a firmware version', 'error');
+        return false;
+    }
+    
+    return true;
+}
+
+// =====================
+// 🎛️ Modal Management
+// =====================
+function showProgressModal(title, message) {
+    const modal = document.getElementById('progressModal');
+    const progressText = document.getElementById('progressText');
+    const progressDetails = document.getElementById('progressDetails');
+    const progressFill = document.getElementById('progressFill');
+    
+    modal.querySelector('h3').innerHTML = `<i class="fas fa-tasks"></i> ${title}`;
+    progressText.textContent = message;
+    progressDetails.textContent = 'Preparing operation...';
+    progressFill.style.width = '10%';
+    
+    modal.style.display = 'block';
+    
+    // Simulate progress
+    let progress = 10;
+    const progressInterval = setInterval(() => {
+        progress += Math.random() * 20;
+        if (progress > 90) progress = 90;
+        progressFill.style.width = progress + '%';
+        
+        if (progress > 30 && progress < 60) {
+            progressDetails.textContent = `Processing ${uploadedDevices.length} devices...`;
+        } else if (progress >= 60) {
+            progressDetails.textContent = 'Finalizing operation...';
+        }
+    }, 500);
+    
+    // Store interval for cleanup
+    modal.progressInterval = progressInterval;
+}
+
+function hideProgressModal() {
+    const modal = document.getElementById('progressModal');
+    if (modal.progressInterval) {
+        clearInterval(modal.progressInterval);
+    }
+    modal.style.display = 'none';
+}
+
+function showResultsModal(title, results) {
+    const modal = document.getElementById('resultsModal');
+    const resultsTitle = document.getElementById('resultsTitle');
+    const resultsContent = document.getElementById('resultsContent');
+    
+    resultsTitle.textContent = title;
+    
+    if (!results || results.length === 0) {
+        resultsContent.innerHTML = '<p style="text-align: center; color: #8b949e;">No results to display</p>';
     } else {
-        alertElement.className = 'status-value operational';
-    }
-}
-
-async function setupCameras() {
-    const setupBtn = document.getElementById('setupCamerasBtn');
-    const stopLoading = CommonUtils.showLoading(setupBtn);
-    
-    try {
-        const cameraCount = parseInt(document.getElementById('cameraCount').value);
-        const resolution = document.getElementById('resolution').value;
-        
-        const requestData = {
-            config_type: "camera_setup",
-            parameters: {
-                camera_count: cameraCount,
-                resolution: resolution,
-                fps: 30
-            }
-        };
-        
-        const response = await CommonUtils.apiRequest('/cctv-tools/configure', {
-            method: 'POST',
-            body: JSON.stringify(requestData)
-        });
-        
-        if (response.status === 'success') {
-            displayCameraSetupResults(response.data);
-            CommonUtils.showAlert(response.message, 'success');
-        } else {
-            throw new Error(response.message || 'Camera setup failed');
-        }
-        
-    } catch (error) {
-        console.error('Camera setup failed:', error);
-        CommonUtils.showAlert(`Camera setup failed: ${error.message}`, 'error');
-    } finally {
-        stopLoading();
-    }
-}
-
-function displayCameraSetupResults(data) {
-    const resultsCard = document.getElementById('resultsCard');
-    const resultsContent = document.getElementById('resultsContent');
-    
-    resultsContent.innerHTML = `
-        <h3>Camera Setup Complete</h3>
-        <p>Successfully configured ${data.total_count} cameras</p>
-        <div class="camera-grid">
-            ${data.cameras.map(camera => `
-                <div class="camera-item">
-                    <div class="camera-name">${camera.name}</div>
-                    <div class="camera-details">
-                        ID: ${camera.id}<br>
-                        Resolution: ${camera.resolution}<br>
-                        FPS: ${camera.fps}<br>
-                        Stream: ${camera.stream_url}
+        let html = '';
+        results.forEach(result => {
+            const statusClass = result.status === 'success' ? 'success' : 
+                               result.status === 'error' ? 'error' : 'warning';
+            
+            html += `
+                <div class="result-item ${statusClass}">
+                    <div>
+                        <div class="result-device">${result.device || result.ip}</div>
+                        <div style="color: #8b949e; font-size: 12px;">${result.message}</div>
                     </div>
-                    <span class="camera-status ${camera.status}">${camera.status}</span>
+                    <div class="result-status ${statusClass}">${result.status.toUpperCase()}</div>
                 </div>
-            `).join('')}
-        </div>
-    `;
-    
-    resultsCard.style.display = 'block';
-    resultsCard.scrollIntoView({ behavior: 'smooth' });
-}
-
-async function configureMonitoring() {
-    const configBtn = document.getElementById('configMonitoringBtn');
-    const stopLoading = CommonUtils.showLoading(configBtn);
-    
-    try {
-        const monitoringType = document.getElementById('monitoringType').value;
-        const checkInterval = parseInt(document.getElementById('checkInterval').value);
-        
-        const requestData = {
-            config_type: "monitoring_config",
-            parameters: {
-                type: monitoringType,
-                interval: checkInterval,
-                alerts: true
-            }
-        };
-        
-        const response = await CommonUtils.apiRequest('/cctv-tools/configure', {
-            method: 'POST',
-            body: JSON.stringify(requestData)
+            `;
         });
-        
-        if (response.status === 'success') {
-            displayMonitoringConfig(response.data);
-            CommonUtils.showAlert(response.message, 'success');
-        } else {
-            throw new Error(response.message || 'Monitoring configuration failed');
-        }
-        
-    } catch (error) {
-        console.error('Monitoring configuration failed:', error);
-        CommonUtils.showAlert(`Monitoring configuration failed: ${error.message}`, 'error');
-    } finally {
-        stopLoading();
+        resultsContent.innerHTML = html;
     }
+    
+    modal.style.display = 'block';
 }
 
-function displayMonitoringConfig(data) {
-    const resultsCard = document.getElementById('resultsCard');
-    const resultsContent = document.getElementById('resultsContent');
-    
-    resultsContent.innerHTML = `
-        <h3>Monitoring Configuration Updated</h3>
-        <div class="monitoring-config">
-            <div class="config-summary">
-                <div class="config-item">
-                    <div class="config-label">Type</div>
-                    <div class="config-value">${data.monitoring_type}</div>
-                </div>
-                <div class="config-item">
-                    <div class="config-label">Interval</div>
-                    <div class="config-value">${data.check_interval}s</div>
-                </div>
-                <div class="config-item">
-                    <div class="config-label">Alerts</div>
-                    <div class="config-value">${data.alerts_enabled ? 'Enabled' : 'Disabled'}</div>
-                </div>
-                <div class="config-item">
-                    <div class="config-label">Status</div>
-                    <div class="config-value">${data.status}</div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    resultsCard.style.display = 'block';
-    resultsCard.scrollIntoView({ behavior: 'smooth' });
+function closeResultsModal() {
+    document.getElementById('resultsModal').style.display = 'none';
 }
 
-async function handleCSVUpload(event) {
-    event.preventDefault();
-    
-    const form = event.target;
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const stopLoading = CommonUtils.showLoading(submitBtn);
-    
-    try {
-        if (!CommonUtils.validateForm(form)) {
-            CommonUtils.showAlert('Please select a CSV file', 'error');
-            return;
+function closeAllModals() {
+    const modals = ['progressModal', 'resultsModal'];
+    modals.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (modal.style.display === 'block') {
+            modal.style.display = 'none';
         }
-        
-        const formData = new FormData(form);
-        const response = await CommonUtils.uploadFile('/cctv-tools/upload-csv', formData);
-        
-        if (response.status === 'success') {
-            displayCSVResults(response.data);
-            CommonUtils.showAlert(response.message, 'success');
-            form.reset();
-        } else {
-            throw new Error(response.message || 'CSV upload failed');
-        }
-        
-    } catch (error) {
-        console.error('CSV upload failed:', error);
-        CommonUtils.showAlert(`CSV upload failed: ${error.message}`, 'error');
-    } finally {
-        stopLoading();
+    });
+}
+
+// =====================
+// 📥 Results Download
+// =====================
+function downloadResults() {
+    if (!operationResults || operationResults.length === 0) {
+        CommonUtils.showAlert('No results to download', 'error');
+        return;
     }
-}
-
-function displayCSVResults(data) {
-    const resultsCard = document.getElementById('resultsCard');
-    const resultsContent = document.getElementById('resultsContent');
     
-    resultsContent.innerHTML = `
-        <h3>CSV Processing Complete</h3>
-        <p>Processed ${data.count} items from CSV file</p>
-        <div class="csv-results">
-            ${data.items.map(item => `
-                <div class="csv-item">
-                    <div class="csv-item-header">${item.name || item.id}</div>
-                    <div class="csv-item-details">
-                        ID: ${item.id}<br>
-                        IP: ${item.ip}<br>
-                        Status: ${item.status}<br>
-                        Processed: ${new Date(item.timestamp).toLocaleString()}
-                    </div>
-                </div>
-            `).join('')}
-        </div>
-    `;
+    // Create CSV content
+    let csvContent = 'Device,IP,Status,Message,Timestamp\n';
+    operationResults.forEach(result => {
+        const device = result.device || result.ip || 'Unknown';
+        const ip = result.ip || '';
+        const status = result.status || 'unknown';
+        const message = (result.message || '').replace(/,/g, ';'); // Replace commas to avoid CSV issues
+        const timestamp = result.timestamp || new Date().toISOString();
+        
+        csvContent += `"${device}","${ip}","${status}","${message}","${timestamp}"\n`;
+    });
     
-    resultsCard.style.display = 'block';
-    resultsCard.scrollIntoView({ behavior: 'smooth' });
+    // Download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cctv_${currentOperation}_results_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    CommonUtils.showAlert('Results downloaded successfully!', 'success');
 }
 
 // Export functions for global access
 window.CCTVTools = {
-    loadSystemStatus,
-    setupCameras,
-    configureMonitoring,
-    handleCSVUpload
+    configureDevices,
+    updateFirmware,
+    checkStatus,
+    rebootDevices,
+    downloadSample,
+    downloadResults,
+    closeResultsModal
 };

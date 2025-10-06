@@ -1,155 +1,430 @@
-import json
-import csv
 import os
-from typing import Dict, List, Any
+import csv
+import json
+import logging
+import hashlib
+import re
+import random
+import time
+import concurrent.futures as futures
+from typing import Dict, List, Tuple, Optional
 from datetime import datetime
+import tempfile
+
+try:
+    import requests
+    from requests.auth import HTTPDigestAuth, HTTPBasicAuth
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
+
 from config import settings
 
 class CCTVToolsService:
     def __init__(self):
-        self.upload_dir = settings.UPLOAD_DIR
-        os.makedirs(self.upload_dir, exist_ok=True)
-    
-    def process_cctv_config(self, config_type: str, parameters: Dict[str, Any]) -> Dict:
-        """Process CCTV configuration based on type"""
-        try:
-            if config_type == "camera_setup":
-                return self._setup_cameras(parameters)
-            elif config_type == "monitoring_config":
-                return self._configure_monitoring(parameters)
-            elif config_type == "batch_operation":
-                return self._batch_operation(parameters)
-            else:
-                return {
-                    "status": "error",
-                    "message": f"Unknown configuration type: {config_type}"
-                }
-        except Exception as e:
-            return {
-                "status": "error",
-                "message": str(e)
+        self.firmware_dir = os.path.join(settings.TYPE_DIR, 'firmware')
+        self.results_dir = os.path.join(settings.LOG_DIR, 'cctv_results')
+        
+        # Ensure directories exist
+        os.makedirs(self.firmware_dir, exist_ok=True)
+        os.makedirs(self.results_dir, exist_ok=True)
+        
+        # Setup logging
+        self.logger = self._setup_logger()
+        
+        # Default firmware versions (can be loaded from files)
+        self.firmware_versions = [
+            {
+                'name': 'Version 3.1.2306-1',
+                'file': 'v3.1.2306-1.dingzhi.update',
+                'size': '15.2 MB',
+                'date': '2023-06-23'
+            },
+            {
+                'name': 'Version 3.2.2401-2', 
+                'file': 'v3.2.2401-2.dingzhi.update',
+                'size': '16.1 MB',
+                'date': '2024-01-24'
+            },
+            {
+                'name': 'Version 3.3.2405-1',
+                'file': 'v3.3.2405-1.dingzhi.update', 
+                'size': '16.8 MB',
+                'date': '2024-05-15'
             }
+        ]
     
-    def _setup_cameras(self, parameters: Dict[str, Any]) -> Dict:
-        """Setup camera configurations"""
-        camera_count = parameters.get('camera_count', 1)
-        resolution = parameters.get('resolution', '1920x1080')
-        fps = parameters.get('fps', 30)
+    def _setup_logger(self):
+        """Setup dedicated logger for CCTV tools"""
+        logger = logging.getLogger('cctv_tools')
+        logger.setLevel(logging.INFO)
         
-        cameras = []
-        for i in range(camera_count):
-            camera = {
-                "id": f"camera_{i+1:03d}",
-                "name": f"Camera {i+1}",
-                "resolution": resolution,
-                "fps": fps,
-                "status": "configured",
-                "stream_url": f"rtmp://localhost/live/camera_{i+1:03d}"
-            }
-            cameras.append(camera)
+        if not logger.handlers:
+            log_file = os.path.join(settings.LOG_DIR, 'cctv_tools.log')
+            handler = logging.FileHandler(log_file)
+            formatter = logging.Formatter('%(asctime)s [%(levelname)s] [CCTV-Tools] %(message)s')
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
         
-        return {
-            "status": "success",
-            "message": f"Configured {camera_count} cameras",
-            "data": {
-                "cameras": cameras,
-                "total_count": camera_count
-            }
-        }
+        return logger
     
-    def _configure_monitoring(self, parameters: Dict[str, Any]) -> Dict:
-        """Configure monitoring settings"""
-        monitoring_type = parameters.get('type', 'basic')
-        interval = parameters.get('interval', 60)
-        alerts_enabled = parameters.get('alerts', True)
-        
-        config = {
-            "monitoring_type": monitoring_type,
-            "check_interval": interval,
-            "alerts_enabled": alerts_enabled,
-            "timestamp": datetime.now().isoformat(),
-            "status": "active"
-        }
-        
-        return {
-            "status": "success",
-            "message": "Monitoring configuration updated",
-            "data": config
-        }
+    def get_firmware_versions(self) -> List[Dict]:
+        """Get available firmware versions"""
+        return self.firmware_versions
     
-    def _batch_operation(self, parameters: Dict[str, Any]) -> Dict:
-        """Perform batch operations on CCTV systems"""
-        operation = parameters.get('operation', 'status_check')
-        targets = parameters.get('targets', [])
+    def configure_devices(self, devices: List[Dict], firmware_version: str) -> Dict:
+        """Configure multiple CCTV devices"""
+        if not REQUESTS_AVAILABLE:
+            return {"status": "error", "message": "Requests library not available"}
+        
+        self.logger.info(f"Starting configuration for {len(devices)} devices with firmware {firmware_version}")
         
         results = []
-        for target in targets:
-            result = {
-                "target": target,
-                "operation": operation,
-                "status": "success",
-                "message": f"Operation '{operation}' completed on {target}",
-                "timestamp": datetime.now().isoformat()
+        
+        # Use thread pool for concurrent operations
+        with futures.ThreadPoolExecutor(max_workers=5) as executor:
+            future_to_device = {
+                executor.submit(self._configure_single_device, device, firmware_version): device 
+                for device in devices
             }
-            results.append(result)
+            
+            for future in futures.as_completed(future_to_device):
+                device = future_to_device[future]
+                try:
+                    result = future.result()
+                    result['device'] = f"{device['room']} ({device['ip']})"
+                    results.append(result)
+                except Exception as e:
+                    results.append({
+                        'device': f"{device['room']} ({device['ip']})",
+                        'ip': device['ip'],
+                        'status': 'error',
+                        'message': f'Configuration failed: {str(e)}',
+                        'timestamp': datetime.now().isoformat()
+                    })
+        
+        self.logger.info(f"Configuration completed. Success: {sum(1 for r in results if r['status'] == 'success')}, Failed: {sum(1 for r in results if r['status'] == 'error')}")
         
         return {
             "status": "success",
-            "message": f"Batch operation '{operation}' completed on {len(targets)} targets",
-            "data": {
-                "results": results,
-                "summary": {
-                    "total": len(targets),
-                    "successful": len(targets),
-                    "failed": 0
-                }
+            "results": results,
+            "summary": {
+                "total": len(results),
+                "success": sum(1 for r in results if r['status'] == 'success'),
+                "failed": sum(1 for r in results if r['status'] == 'error')
             }
         }
     
-    def process_csv_upload(self, csv_content: str) -> Dict:
-        """Process uploaded CSV file for CCTV configuration"""
+    def _configure_single_device(self, device: Dict, firmware_version: str) -> Dict:
+        """Configure a single CCTV device"""
+        ip = device['ip']
+        user = device.get('user', 'admin')
+        user_sig = device.get('userSig', '')
+        
         try:
-            # Parse CSV content
-            csv_reader = csv.DictReader(csv_content.splitlines())
-            rows = list(csv_reader)
+            # Simulate device configuration (replace with actual API calls)
+            time.sleep(random.uniform(0.5, 2.0))  # Simulate network delay
             
-            processed_items = []
-            for row in rows:
-                processed_item = {
-                    "id": row.get('id', ''),
-                    "name": row.get('name', ''),
-                    "ip": row.get('ip', ''),
-                    "status": "processed",
-                    "timestamp": datetime.now().isoformat()
+            # In real implementation, this would make HTTP requests to the device
+            # Example: Configure device settings, upload firmware, etc.
+            
+            # For now, simulate success/failure based on IP pattern
+            if self._simulate_device_response(ip):
+                return {
+                    'ip': ip,
+                    'status': 'success',
+                    'message': 'Device configured successfully',
+                    'firmware': firmware_version,
+                    'timestamp': datetime.now().isoformat()
                 }
-                processed_items.append(processed_item)
-            
-            return {
-                "status": "success",
-                "message": f"Processed {len(processed_items)} items from CSV",
-                "data": {
-                    "items": processed_items,
-                    "count": len(processed_items)
+            else:
+                return {
+                    'ip': ip,
+                    'status': 'error',
+                    'message': 'Device configuration failed - connection timeout',
+                    'timestamp': datetime.now().isoformat()
                 }
-            }
-            
+                
         except Exception as e:
             return {
-                "status": "error",
-                "message": f"Failed to process CSV: {str(e)}"
+                'ip': ip,
+                'status': 'error',
+                'message': f'Configuration error: {str(e)}',
+                'timestamp': datetime.now().isoformat()
             }
     
-    def get_cctv_status(self) -> Dict:
-        """Get current CCTV system status"""
+    def update_firmware(self, devices: List[Dict], firmware_version: str) -> Dict:
+        """Update firmware on multiple CCTV devices"""
+        if not REQUESTS_AVAILABLE:
+            return {"status": "error", "message": "Requests library not available"}
+        
+        self.logger.info(f"Starting firmware update for {len(devices)} devices to version {firmware_version}")
+        
+        results = []
+        
+        # Use thread pool for concurrent operations
+        with futures.ThreadPoolExecutor(max_workers=3) as executor:  # Fewer threads for firmware updates
+            future_to_device = {
+                executor.submit(self._update_single_device, device, firmware_version): device 
+                for device in devices
+            }
+            
+            for future in futures.as_completed(future_to_device):
+                device = future_to_device[future]
+                try:
+                    result = future.result()
+                    result['device'] = f"{device['room']} ({device['ip']})"
+                    results.append(result)
+                except Exception as e:
+                    results.append({
+                        'device': f"{device['room']} ({device['ip']})",
+                        'ip': device['ip'],
+                        'status': 'error',
+                        'message': f'Firmware update failed: {str(e)}',
+                        'timestamp': datetime.now().isoformat()
+                    })
+        
+        self.logger.info(f"Firmware update completed. Success: {sum(1 for r in results if r['status'] == 'success')}, Failed: {sum(1 for r in results if r['status'] == 'error')}")
+        
         return {
             "status": "success",
-            "data": {
-                "system_status": "operational",
-                "active_cameras": 12,
-                "total_cameras": 15,
-                "alerts": 2,
-                "last_update": datetime.now().isoformat(),
-                "uptime": "5 days, 14 hours",
-                "storage_usage": "68%"
+            "results": results,
+            "summary": {
+                "total": len(results),
+                "success": sum(1 for r in results if r['status'] == 'success'),
+                "failed": sum(1 for r in results if r['status'] == 'error')
             }
         }
+    
+    def _update_single_device(self, device: Dict, firmware_version: str) -> Dict:
+        """Update firmware on a single CCTV device"""
+        ip = device['ip']
+        
+        try:
+            # Simulate firmware update process
+            time.sleep(random.uniform(2.0, 5.0))  # Firmware updates take longer
+            
+            # In real implementation, this would:
+            # 1. Upload firmware file to device
+            # 2. Trigger firmware update
+            # 3. Wait for device to reboot
+            # 4. Verify new firmware version
+            
+            if self._simulate_device_response(ip):
+                return {
+                    'ip': ip,
+                    'status': 'success',
+                    'message': f'Firmware updated to {firmware_version}',
+                    'firmware': firmware_version,
+                    'timestamp': datetime.now().isoformat()
+                }
+            else:
+                return {
+                    'ip': ip,
+                    'status': 'error',
+                    'message': 'Firmware update failed - device not responding',
+                    'timestamp': datetime.now().isoformat()
+                }
+                
+        except Exception as e:
+            return {
+                'ip': ip,
+                'status': 'error',
+                'message': f'Firmware update error: {str(e)}',
+                'timestamp': datetime.now().isoformat()
+            }
+    
+    def check_device_status(self, devices: List[Dict]) -> Dict:
+        """Check status of multiple CCTV devices"""
+        if not REQUESTS_AVAILABLE:
+            return {"status": "error", "message": "Requests library not available"}
+        
+        self.logger.info(f"Checking status for {len(devices)} devices")
+        
+        results = []
+        
+        # Use thread pool for concurrent status checks
+        with futures.ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_device = {
+                executor.submit(self._check_single_device_status, device): device 
+                for device in devices
+            }
+            
+            for future in futures.as_completed(future_to_device):
+                device = future_to_device[future]
+                try:
+                    result = future.result()
+                    result['device'] = f"{device['room']} ({device['ip']})"
+                    results.append(result)
+                except Exception as e:
+                    results.append({
+                        'device': f"{device['room']} ({device['ip']})",
+                        'ip': device['ip'],
+                        'status': 'error',
+                        'message': f'Status check failed: {str(e)}',
+                        'timestamp': datetime.now().isoformat()
+                    })
+        
+        return {
+            "status": "success",
+            "results": results,
+            "summary": {
+                "total": len(results),
+                "online": sum(1 for r in results if r['status'] == 'success'),
+                "offline": sum(1 for r in results if r['status'] == 'error')
+            }
+        }
+    
+    def _check_single_device_status(self, device: Dict) -> Dict:
+        """Check status of a single CCTV device"""
+        ip = device['ip']
+        
+        try:
+            # Simulate status check
+            time.sleep(random.uniform(0.2, 1.0))
+            
+            # In real implementation, this would make HTTP request to device
+            # to check status, firmware version, uptime, etc.
+            
+            if self._simulate_device_response(ip):
+                firmware_version = random.choice(self.firmware_versions)['file']
+                uptime = f"{random.randint(1, 30)} days"
+                
+                return {
+                    'ip': ip,
+                    'status': 'success',
+                    'message': 'Device online',
+                    'firmware': firmware_version,
+                    'uptime': uptime,
+                    'timestamp': datetime.now().isoformat()
+                }
+            else:
+                return {
+                    'ip': ip,
+                    'status': 'error',
+                    'message': 'Device offline or not responding',
+                    'timestamp': datetime.now().isoformat()
+                }
+                
+        except Exception as e:
+            return {
+                'ip': ip,
+                'status': 'error',
+                'message': f'Status check error: {str(e)}',
+                'timestamp': datetime.now().isoformat()
+            }
+    
+    def reboot_devices(self, devices: List[Dict]) -> Dict:
+        """Reboot multiple CCTV devices"""
+        if not REQUESTS_AVAILABLE:
+            return {"status": "error", "message": "Requests library not available"}
+        
+        self.logger.info(f"Rebooting {len(devices)} devices")
+        
+        results = []
+        
+        # Use thread pool for concurrent reboots
+        with futures.ThreadPoolExecutor(max_workers=5) as executor:
+            future_to_device = {
+                executor.submit(self._reboot_single_device, device): device 
+                for device in devices
+            }
+            
+            for future in futures.as_completed(future_to_device):
+                device = future_to_device[future]
+                try:
+                    result = future.result()
+                    result['device'] = f"{device['room']} ({device['ip']})"
+                    results.append(result)
+                except Exception as e:
+                    results.append({
+                        'device': f"{device['room']} ({device['ip']})",
+                        'ip': device['ip'],
+                        'status': 'error',
+                        'message': f'Reboot failed: {str(e)}',
+                        'timestamp': datetime.now().isoformat()
+                    })
+        
+        self.logger.info(f"Reboot completed. Success: {sum(1 for r in results if r['status'] == 'success')}, Failed: {sum(1 for r in results if r['status'] == 'error')}")
+        
+        return {
+            "status": "success",
+            "results": results,
+            "summary": {
+                "total": len(results),
+                "success": sum(1 for r in results if r['status'] == 'success'),
+                "failed": sum(1 for r in results if r['status'] == 'error')
+            }
+        }
+    
+    def _reboot_single_device(self, device: Dict) -> Dict:
+        """Reboot a single CCTV device"""
+        ip = device['ip']
+        
+        try:
+            # Simulate reboot process
+            time.sleep(random.uniform(1.0, 3.0))
+            
+            # In real implementation, this would send reboot command to device
+            
+            if self._simulate_device_response(ip):
+                return {
+                    'ip': ip,
+                    'status': 'success',
+                    'message': 'Device rebooted successfully',
+                    'timestamp': datetime.now().isoformat()
+                }
+            else:
+                return {
+                    'ip': ip,
+                    'status': 'error',
+                    'message': 'Reboot command failed - device not responding',
+                    'timestamp': datetime.now().isoformat()
+                }
+                
+        except Exception as e:
+            return {
+                'ip': ip,
+                'status': 'error',
+                'message': f'Reboot error: {str(e)}',
+                'timestamp': datetime.now().isoformat()
+            }
+    
+    def _simulate_device_response(self, ip: str) -> bool:
+        """Simulate device response based on IP (for development/testing)"""
+        # Create deterministic but varied responses based on IP
+        ip_hash = hashlib.md5(ip.encode()).hexdigest()
+        # 85% success rate for simulation
+        return int(ip_hash[:2], 16) < 217  # 217/255 ≈ 85%
+    
+    def batch_operation(self, operation: str, devices: List[Dict], **kwargs) -> Dict:
+        """Perform batch operation on devices"""
+        if operation == 'configure':
+            return self.configure_devices(devices, kwargs.get('firmware_version', ''))
+        elif operation == 'update':
+            return self.update_firmware(devices, kwargs.get('firmware_version', ''))
+        elif operation == 'status':
+            return self.check_device_status(devices)
+        elif operation == 'reboot':
+            return self.reboot_devices(devices)
+        else:
+            return {"status": "error", "message": f"Unknown operation: {operation}"}
+    
+    def save_results(self, operation: str, results: List[Dict]) -> str:
+        """Save operation results to file"""
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"cctv_{operation}_{timestamp}.json"
+        filepath = os.path.join(self.results_dir, filename)
+        
+        try:
+            with open(filepath, 'w') as f:
+                json.dump({
+                    'operation': operation,
+                    'timestamp': datetime.now().isoformat(),
+                    'results': results
+                }, f, indent=2)
+            
+            return filename
+        except Exception as e:
+            self.logger.error(f"Failed to save results: {e}")
+            return None
