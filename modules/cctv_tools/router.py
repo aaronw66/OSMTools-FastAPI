@@ -111,7 +111,52 @@ async def configure_devices(request: Request):
 
 @router.post("/update-firmware")
 async def update_firmware(request: Request):
-    """Update firmware on multiple CCTV devices"""
+    """Prepare firmware update modal - check device status and show ready devices"""
+    try:
+        data = await request.json()
+        devices = data.get('devices', [])
+        firmware_version = data.get('firmware_version', '')
+        
+        if not devices:
+            return JSONResponse(content={"status": "error", "message": "No devices provided"})
+        
+        if not firmware_version:
+            return JSONResponse(content={"status": "error", "message": "Firmware version is required"})
+        
+        # Prepare firmware update modal (get device info but don't update yet)
+        result = service.prepare_firmware_update(devices, firmware_version)
+        
+        return JSONResponse(content=result)
+    except Exception as e:
+        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+
+@router.post("/update-single-firmware")
+async def update_single_firmware(request: Request):
+    """Update firmware on a single CCTV device"""
+    try:
+        data = await request.json()
+        ip = data.get('ip')
+        username = data.get('username', 'admin')
+        password = data.get('password', '123456')
+        firmware_version = data.get('firmware_version', '')
+        
+        if not ip or not firmware_version:
+            return JSONResponse(content={"status": "error", "message": "IP and firmware version are required"}, status_code=400)
+        
+        device = {
+            'ip': ip,
+            'username': username,
+            'password': password
+        }
+        
+        result = service.update_single_device_firmware(device, firmware_version)
+        return JSONResponse(content=result)
+    except Exception as e:
+        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+
+@router.post("/batch-update-firmware")
+async def batch_update_firmware(request: Request):
+    """Batch update firmware on multiple CCTV devices"""
     try:
         data = await request.json()
         devices = data.get('devices', [])

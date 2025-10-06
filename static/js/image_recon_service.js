@@ -176,7 +176,6 @@ function displayServers() {
             html += `
                 <div class="server-box" onclick="showLogs('${server.ip}', '${server.hostname}')" 
                      title="Click to view logs for ${server.hostname}">
-                    <div class="shimmer"></div>
                     <i class="fas fa-desktop server-icon"></i>
                     <div class="server-name">${server.hostname} ${devBadge}</div>
                     <div class="server-version" id="version-${server.ip.replace(/\./g, '-')}">Loading...</div>

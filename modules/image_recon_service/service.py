@@ -96,52 +96,55 @@ class ImageReconServiceManager:
         # Ensure email config exists
         self._ensure_email_config()
     
+# Quick fix for get_image_recon_servers method
+    
     def get_image_recon_servers(self) -> List[Dict]:
         """Get list of server IPs from image-recon.json"""
-        # Try multiple possible paths for the image-recon.json file
-        json_file_paths = [
-            '/opt/compose-conf/prometheus/config/conf.d/node/image-recon.json',
-            '/opt/compose-conf/prometheus/image-recon.json',
-            '/opt/compose-conf/image-recon.json',
-            os.path.join(settings.TYPE_DIR, 'ir.json')  # Fallback for local dev
-        ]
+    # Try multiple possible paths for the image-recon.json file
+    json_file_paths = [
+        '/opt/compose-conf/prometheus/config/conf.d/node/image-recon.json',
+        '/opt/compose-conf/prometheus/image-recon.json',
+        '/opt/compose-conf/image-recon.json',
+        os.path.join(settings.TYPE_DIR, 'ir.json')  # Fallback for local dev
+    ]
+    
+    for json_file_path in json_file_paths:
+        if not os.path.exists(json_file_path):
+            print(f"⏭️  Skipping (not found): {json_file_path}")
+            continue
         
-        for json_file_path in json_file_paths:
-            if not os.path.exists(json_file_path):
-                print(f"⏭️  Skipping (not found): {json_file_path}")
-                continue
-                
-            try:
-                with open(json_file_path, 'r') as f:
-                    data = json.load(f)
-                
-                servers = []
-                if isinstance(data, list):
-                    for item in data:
-                        targets = item.get('targets', [])
-                        for target in targets:
-                            ip = target.split(':')[0]
-                            hostname = item.get('labels', {}).get('hostname', 'Unknown Host')
-                            label = hostname.split('-')[0]
-                            
-                            # Filter out SRS servers for restart operations
-                            if label.upper() != 'SRS':
-                                servers.append({
-                                    "ip": ip,
-                                    "hostname": hostname,
-                                    "label": label,
-                                    "status": "unknown"
-                                })
-                
-                print(f"✅ Loaded {len(servers)} servers from: {json_file_path}")
-                return servers
-            except Exception as e:
-                print(f"❌ Error reading {json_file_path}: {e}")
-                continue
-        
-        # If no config files found, use mock data
-        print("⚠️ No config files found in any location - using mock data for development")
-        return self._get_mock_servers()
+        try:
+            with open(json_file_path, 'r') as f:
+                data = json.load(f)
+            
+            servers = []
+            if isinstance(data, list):
+                for item in data:
+                    targets = item.get('targets', [])
+                    for target in targets:
+                        ip = target.split(':')[0]
+                        hostname = item.get('labels', {}).get('hostname', 'Unknown Host')
+                        label = hostname.split('-')[0]
+                        
+                        # Filter out SRS servers for restart operations
+                        if label.upper() != 'SRS':
+                            servers.append({
+                                "ip": ip,
+                                "hostname": hostname,
+                                "label": label,
+                                "status": "unknown"
+                            })
+            
+            print(f"✅ Loaded {len(servers)} servers from: {json_file_path}")
+            return servers
+        except Exception as e:
+            print(f"❌ Error reading {json_file_path}: {e}")
+            continue
+    
+    # If no config files found, use mock data
+    print("⚠️ No config files found in any location - using mock data for development")
+            return self._get_mock_servers()
+
     
     def _get_mock_servers(self) -> List[Dict]:
         """Return mock server data for development/testing"""
@@ -630,40 +633,43 @@ class ImageReconServiceManager:
             logger.info("🔄 SERVER REFRESH INITIATED")
             logger.info("=" * 80)
             
-            # Read server groups from image-recon.json
-            server_groups = self.get_image_recon_servers()
+            # Read server list from image-recon.json (returns a list of servers)
+            servers_list = self.get_image_recon_servers()
             
-            if not server_groups:
+            if not servers_list:
                 return {"status": "error", "message": "No servers found in image-recon.json"}
             
-            # Initialize the result data structure
+            # Initialize the result data structure grouped by label
             refreshed_data = {}
             total_servers = 0
             successful_fetches = 0
             
-            # Loop through the servers and fetch the IDs for each server
-            for label, servers in server_groups.items():
-                refreshed_data[label] = []
+            # Group servers by label and fetch IDs for each
+            for server in servers_list:
+                server_ip = server['ip']
+                hostname = server['hostname']
+                label = server.get('label', 'Unknown')
+                total_servers += 1
                 
-                for server in servers:
-                    server_ip = server['ip']
-                    hostname = server['hostname']
-                    total_servers += 1
-                    
-                    # Fetch the server IDs by SSH'ing into the server
-                    ids = self.get_server_ids(server_ip)
-                    
-                    if ids:
-                        successful_fetches += 1
-                        refreshed_data[label].append({
-                            "hostname": hostname,
-                            "ids": ids
-                        })
-                    else:
-                        refreshed_data[label].append({
-                            "hostname": hostname,
-                            "ids": []  # If no IDs were fetched, set an empty list
-                        })
+                # Initialize label group if not exists
+                if label not in refreshed_data:
+                    refreshed_data[label] = []
+                
+                # Fetch the server IDs by SSH'ing into the server
+                logger.info(f"📋 Fetching IDs from {hostname} ({server_ip})")
+                ids = self.get_server_ids(server_ip)
+                
+                if ids:
+                    successful_fetches += 1
+                    refreshed_data[label].append({
+                        "hostname": hostname,
+                        "ids": ids
+                    })
+                else:
+                    refreshed_data[label].append({
+                        "hostname": hostname,
+                        "ids": []  # If no IDs were fetched, set an empty list
+                    })
             
             # Define the path to store the JSON file (ir.json)
             json_file_path = os.path.join(settings.TYPE_DIR, 'ir.json')
@@ -856,10 +862,10 @@ class ImageReconServiceManager:
                 has_errors = any(indicator in logs.lower() for indicator in error_indicators)
                 
                 status = "offline" if is_offline else ("error" if has_errors else "online")
-                
-                results.append({
-                    "server": server_hostname,
-                    "ip": server_ip,
+            
+            results.append({
+                "server": server_hostname,
+                "ip": server_ip,
                     "status": status,
                     "version": version,
                     "message": "Service is running" if status == "online" else f"Service has issues: {status}"
@@ -872,7 +878,7 @@ class ImageReconServiceManager:
                     "status": "error",
                     "version": "Unknown",
                     "message": f"Error checking status: {str(e)}"
-                })
+            })
         
         return {
             "status": "success",

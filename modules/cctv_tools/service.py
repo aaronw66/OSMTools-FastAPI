@@ -346,6 +346,147 @@ class CCTVToolsService:
         
         return result
     
+    def prepare_firmware_update(self, devices: List[Dict], firmware_version: str) -> Dict:
+        """Prepare firmware update modal - get device info but don't update yet"""
+        if not REQUESTS_AVAILABLE:
+            return {"status": "error", "message": "Requests library not available"}
+        
+        firmware_path = os.path.join(self.firmware_dir, firmware_version)
+        if not os.path.exists(firmware_path):
+            return {"status": "error", "message": f"Firmware file not found: {firmware_version}"}
+        
+        self.logger.info(f"📦 Preparing firmware update modal for {len(devices)} devices with {firmware_version}")
+        
+        results = []
+        for device in devices:
+            ip = device.get('ip', '').strip()
+            if not ip:
+                continue
+            
+            # Get device info for display
+            device_info = self._get_device_basic_info(ip, 'admin', '123456')
+            
+            result = {
+                'ip': ip,
+                'username': 'admin',
+                'password': '123456',
+                'device_name': device_info.get('device_name', 'Unknown'),
+                'build_date': device_info.get('build_date', 'Unknown'),
+                'model': device_info.get('model', 'Unknown'),
+                'status': 'READY'  # All devices start as ready
+            }
+            results.append(result)
+        
+        return {
+            'success': True,
+            'results': results,
+            'firmware_filename': firmware_version,
+            'operation_type': 'Firmware Update',
+            'total_devices': len(results),
+            'message': f'Ready to update {len(results)} devices with {firmware_version}'
+        }
+    
+    def update_single_device_firmware(self, device: Dict, firmware_version: str) -> Dict:
+        """Update firmware on a single CCTV device"""
+        ip = device['ip']
+        username = device.get('username', 'admin')
+        password = device.get('password', '123456')
+        
+        firmware_path = os.path.join(self.firmware_dir, firmware_version)
+        if not os.path.exists(firmware_path):
+            return {"success": False, "error": f"Firmware file not found: {firmware_version}"}
+        
+        self.logger.info(f"📦 Starting individual firmware update for {ip} with {firmware_version}")
+        
+        try:
+            result = self._send_firmware_to_device(ip, username, password, firmware_path)
+            self.logger.info(f"✅ Individual firmware update completed for {ip}")
+            
+            return {
+                'success': True,
+                'result': result,
+                'ip': ip,
+                'firmware_filename': firmware_version
+            }
+        except Exception as e:
+            self.logger.error(f"❌ Error during individual firmware update for {ip}: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Firmware update failed: {str(e)}',
+                'ip': ip,
+                'firmware_filename': firmware_version
+            }
+    
+    def _send_firmware_to_device(self, ip: str, username: str, password: str, firmware_path: str) -> Dict:
+        """Send firmware file to device"""
+        url = f"http://{ip}/digest/upload"
+        
+        # Get device info first
+        device_info = self._get_device_basic_info(ip, username, password)
+        
+        try:
+            file_size = os.path.getsize(firmware_path)
+            file_size_mb = file_size / (1024 * 1024)
+            self.logger.info(f"📁 Firmware file size: {file_size_mb:.2f} MB")
+            
+            with open(firmware_path, 'rb') as f:
+                files = {
+                    'selfile': (os.path.basename(firmware_path), f, 'application/octet-stream'),
+                    'param': (None, json.dumps({"uploadType": "Update"}), 'application/json')
+                }
+                self.logger.info(f"➡️  Sending firmware to {ip}")
+                response = requests.post(
+                    url,
+                    files=files,
+                    auth=HTTPDigestAuth(username, password),
+                    timeout=(30, 600)  # 10 minutes for large firmware
+                )
+                
+                return {
+                    "ip": ip,
+                    "status": "OK" if 200 <= response.status_code < 300 else "FAIL",
+                    "http_code": response.status_code,
+                    "device_name": device_info["device_name"],
+                    "build_date": device_info["build_date"]
+                }
+        except Exception as e:
+            self.logger.error(f"[{ip}] ❌ Firmware upload exception: {e}")
+            return {
+                "ip": ip,
+                "status": "ERROR",
+                "error": str(e),
+                "device_name": device_info.get("device_name", "Unknown"),
+                "build_date": device_info.get("build_date", "Unknown")
+            }
+    
+    def _get_device_basic_info(self, ip: str, username: str, password: str) -> Dict:
+        """Get basic device info (name, build date)"""
+        device_info_url = f"http://{ip}/digest/frmGetFactoryInfo"
+        payload = {"Type": 0, "Dev": 1, "Ch": 1, "Data": {}}
+        
+        try:
+            auth_methods = [
+                HTTPDigestAuth(username, password),
+                HTTPBasicAuth(username, password),
+            ]
+            
+            for auth in auth_methods:
+                try:
+                    response = requests.post(device_info_url, json=payload, auth=auth, timeout=10)
+                    if response.status_code == 200:
+                        data = response.json().get('Data', {})
+                        return {
+                            'device_name': data.get('DeviceName', 'Unknown'),
+                            'build_date': data.get('BuildDate', 'Unknown'),
+                            'model': data.get('Model', 'Unknown')
+                        }
+                except Exception:
+                    continue
+        except Exception as e:
+            self.logger.warning(f"[{ip}] Could not get device info: {e}")
+        
+        return {'device_name': 'Unknown', 'build_date': 'Unknown', 'model': 'Unknown'}
+    
     def update_firmware(self, devices: List[Dict], firmware_version: str) -> Dict:
         """Update firmware on multiple CCTV devices"""
         if not REQUESTS_AVAILABLE:
@@ -560,7 +701,7 @@ class CCTVToolsService:
                         if response.status_code == 200:
                             self.logger.info(f"[{ip}] TRTC config retrieved using {auth_name}")
                             break
-                        else:
+            else:
                             last_error = f"{auth_name} returned {response.status_code}"
                     except Exception as e:
                         last_error = f"{auth_name} failed: {str(e)}"
@@ -589,7 +730,7 @@ class CCTVToolsService:
             # If we got here, device is online
             result['status'] = 'success'
             result['message'] = 'Device online'
-            
+                
         except Exception as e:
             result['message'] = f'Error: {str(e)}'
             self.logger.error(f"[{ip}] Status check error: {e}")
@@ -685,7 +826,7 @@ class CCTVToolsService:
                                 result['message'] = f'Device reboot command sent successfully using {auth_name}'
                                 self.logger.info(f"[{ip}] ✅ Device reboot successful")
                                 return result
-                            else:
+            else:
                                 error_string = response_json.get('ErrorString', 'Unknown error')
                                 result['message'] = f'Reboot API error: {error_string} (Code: {result_code})'
                                 self.logger.warning(f"[{ip}] Reboot API error: {result_code} - {error_string}")
