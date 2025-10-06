@@ -163,12 +163,16 @@ async function configureDevices() {
         
         const data = await response.json();
         
+        // Always hide progress modal before showing results or errors
+        hideProgressModal();
+        
         if (data.status === 'success') {
             operationResults = data.results;
-            hideProgressModal();
-            showResultsModal('Device Configuration Results', data.results);
+            // Add small delay to ensure modal closes before showing results
+            setTimeout(() => {
+                showResultsModal('Device Configuration Results', data.results);
+            }, 100);
         } else {
-            hideProgressModal();
             CommonUtils.showAlert('Configuration failed: ' + data.message, 'error');
         }
     } catch (error) {
@@ -198,12 +202,16 @@ async function updateFirmware() {
         
         const data = await response.json();
         
+        // Always hide progress modal before showing results or errors
+        hideProgressModal();
+        
         if (data.status === 'success') {
             operationResults = data.results;
-            hideProgressModal();
-            showResultsModal('Firmware Update Results', data.results);
+            // Add small delay to ensure modal closes before showing results
+            setTimeout(() => {
+                showResultsModal('Firmware Update Results', data.results);
+            }, 100);
         } else {
-            hideProgressModal();
             CommonUtils.showAlert('Firmware update failed: ' + data.message, 'error');
         }
     } catch (error) {
@@ -235,12 +243,16 @@ async function checkStatus() {
         
         const data = await response.json();
         
+        // Always hide progress modal before showing results or errors
+        hideProgressModal();
+        
         if (data.status === 'success') {
             operationResults = data.results;
-            hideProgressModal();
-            showResultsModal('Device Status Check Results', data.results);
+            // Add small delay to ensure modal closes before showing results
+            setTimeout(() => {
+                showResultsModal('Device Status Check Results', data.results);
+            }, 100);
         } else {
-            hideProgressModal();
             CommonUtils.showAlert('Status check failed: ' + data.message, 'error');
         }
     } catch (error) {
@@ -275,12 +287,16 @@ async function rebootDevices() {
         
         const data = await response.json();
         
+        // Always hide progress modal before showing results or errors
+        hideProgressModal();
+        
         if (data.status === 'success') {
             operationResults = data.results;
-            hideProgressModal();
-            showResultsModal('Device Reboot Results', data.results);
+            // Add small delay to ensure modal closes before showing results
+            setTimeout(() => {
+                showResultsModal('Device Reboot Results', data.results);
+            }, 100);
         } else {
-            hideProgressModal();
             CommonUtils.showAlert('Reboot failed: ' + data.message, 'error');
         }
     } catch (error) {
@@ -344,10 +360,13 @@ function showProgressModal(title, message) {
 
 function hideProgressModal() {
     const modal = document.getElementById('progressModal');
-    if (modal.progressInterval) {
+    if (modal && modal.progressInterval) {
         clearInterval(modal.progressInterval);
+        modal.progressInterval = null;
     }
-    modal.style.display = 'none';
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }
 
 function showResultsModal(title, results) {

@@ -15,6 +15,7 @@ class Settings:
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "uploads")
     LOG_DIR: str = os.getenv("LOG_DIR", "logs")
     TYPE_DIR: str = os.getenv("TYPE_DIR", "type")
+    FIRMWARE_DIR: str = os.getenv("FIRMWARE_DIR", "static/update")
     
     # Server Configuration
     HOST: str = os.getenv("HOST", "0.0.0.0")
@@ -25,6 +26,7 @@ class Settings:
         os.makedirs(self.UPLOAD_DIR, exist_ok=True)
         os.makedirs(self.LOG_DIR, exist_ok=True)
         os.makedirs(self.TYPE_DIR, exist_ok=True)
+        os.makedirs(self.FIRMWARE_DIR, exist_ok=True)
 
 settings = Settings()
 settings.__post_init__()

@@ -22,7 +22,7 @@ from config import settings
 
 class CCTVToolsService:
     def __init__(self):
-        self.firmware_dir = os.path.join(settings.TYPE_DIR, 'firmware')
+        self.firmware_dir = settings.FIRMWARE_DIR
         self.results_dir = os.path.join(settings.LOG_DIR, 'cctv_results')
         
         # Ensure directories exist
@@ -32,27 +32,8 @@ class CCTVToolsService:
         # Setup logging
         self.logger = self._setup_logger()
         
-        # Default firmware versions (can be loaded from files)
-        self.firmware_versions = [
-            {
-                'name': 'Version 3.1.2306-1',
-                'file': 'v3.1.2306-1.dingzhi.update',
-                'size': '15.2 MB',
-                'date': '2023-06-23'
-            },
-            {
-                'name': 'Version 3.2.2401-2', 
-                'file': 'v3.2.2401-2.dingzhi.update',
-                'size': '16.1 MB',
-                'date': '2024-01-24'
-            },
-            {
-                'name': 'Version 3.3.2405-1',
-                'file': 'v3.3.2405-1.dingzhi.update', 
-                'size': '16.8 MB',
-                'date': '2024-05-15'
-            }
-        ]
+        # Load firmware versions from directory
+        self.firmware_versions = self._load_firmware_versions()
     
     def _setup_logger(self):
         """Setup dedicated logger for CCTV tools"""
@@ -67,6 +48,55 @@ class CCTVToolsService:
             logger.addHandler(handler)
         
         return logger
+    
+    def _load_firmware_versions(self) -> List[Dict]:
+        """Load firmware versions from the firmware directory"""
+        versions = []
+        
+        try:
+            if not os.path.exists(self.firmware_dir):
+                self.logger.warning(f"Firmware directory not found: {self.firmware_dir}")
+                return []
+            
+            # List all .update files in the firmware directory
+            for filename in sorted(os.listdir(self.firmware_dir)):
+                if filename.endswith('.update'):
+                    filepath = os.path.join(self.firmware_dir, filename)
+                    
+                    # Get file size
+                    file_size = os.path.getsize(filepath)
+                    size_mb = file_size / (1024 * 1024)
+                    
+                    # Extract date from filename (format: YYYYMMDD-...)
+                    date_match = re.match(r'(\d{8})', filename)
+                    date_str = 'Unknown'
+                    if date_match:
+                        date_raw = date_match.group(1)
+                        try:
+                            date_obj = datetime.strptime(date_raw, '%Y%m%d')
+                            date_str = date_obj.strftime('%Y-%m-%d')
+                        except ValueError:
+                            pass
+                    
+                    # Extract version name from filename
+                    version_name = filename.replace('.dingzhi.update', '').replace('.update', '')
+                    
+                    versions.append({
+                        'name': version_name,
+                        'file': filename,
+                        'size': f'{size_mb:.1f} MB',
+                        'date': date_str
+                    })
+            
+            if not versions:
+                self.logger.warning(f"No firmware files found in {self.firmware_dir}")
+            else:
+                self.logger.info(f"Loaded {len(versions)} firmware version(s)")
+                
+        except Exception as e:
+            self.logger.error(f"Error loading firmware versions: {e}")
+        
+        return versions
     
     def get_firmware_versions(self) -> List[Dict]:
         """Get available firmware versions"""
