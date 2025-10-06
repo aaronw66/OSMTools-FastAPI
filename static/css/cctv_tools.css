@@ -564,6 +564,17 @@ body {
     color: #dc3545;
 }
 
+.enable-badge.enable-enabled {
+    background: rgba(40, 167, 69, 0.15);
+    color: #28a745;
+}
+
+.enable-badge.enable-disabled {
+    background: rgba(220, 53, 69, 0.15);
+    color: #dc3545;
+}
+
+/* Keep old classes for backward compatibility */
 .enable-badge.enable-online {
     background: rgba(40, 167, 69, 0.15);
     color: #28a745;

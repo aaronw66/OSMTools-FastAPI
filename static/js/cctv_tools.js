@@ -541,6 +541,7 @@ function showResultsModal(title, results) {
             const statusClass = result.status === 'success' ? 'online' : 'offline';
             const statusText = result.status === 'success' ? 'ONLINE' : 'OFFLINE';
             const enableText = result.enable !== false ? 'ENABLE' : 'DISABLE';
+            const enableClass = result.enable !== false ? 'enabled' : 'disabled';
             
             // Format build date if it's in YYYYMMDD format
             let buildDate = result.build_date || result.firmware || 'Unknown';
@@ -556,7 +557,7 @@ function showResultsModal(title, results) {
                 <tr class="result-table-row">
                     <td class="result-ip">${result.ip || 'N/A'}</td>
                     <td><span class="status-badge status-${statusClass}">${statusText}</span></td>
-                    <td><span class="enable-badge enable-${statusClass}">${enableText}</span></td>
+                    <td><span class="enable-badge enable-${enableClass}">${enableText}</span></td>
                     <td>${buildDate}</td>
                     <td>${result.app_id || '20008185'}</td>
                     <td>${result.room || 'N/A'}</td>

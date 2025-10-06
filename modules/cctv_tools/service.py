@@ -396,7 +396,7 @@ class CCTVToolsService:
             'device_name': 'Unknown',
             'build_date': 'Unknown',
             'app_id': '20008185',
-            'enable': False,
+            'enable': True,  # Default to True if we can't determine (like old version)
             'timestamp': datetime.now().isoformat()
         }
         
