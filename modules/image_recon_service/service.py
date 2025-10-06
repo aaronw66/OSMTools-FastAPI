@@ -317,10 +317,10 @@ class ImageReconServiceManager:
             
             for server in servers:
                 try:
-                    # Get version directly using _get_server_version
-                    version = self._get_server_version(server.get('ip'), server.get('hostname', 'Unknown'))
+                    # Get version directly using _get_server_version (only takes server_ip)
+                    version = self._get_server_version(server.get('ip'))
                     
-                    if version and version != 'N/A' and version != 'Error' and version != 'Offline':
+                    if version and version != 'N/A' and version != 'Error' and version != 'Offline' and version != 'Unknown':
                         successful_checks += 1
                         version_results.append({
                             'success': True,
@@ -367,6 +367,19 @@ class ImageReconServiceManager:
                 config["schedule"]["last_run"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 self.save_email_config(config)
                 
+                # Send Lark notification
+                success_rate = (successful_checks / len(version_results) * 100) if len(version_results) > 0 else 0
+                lark_message = (
+                    f"📧 **Version Check Email Sent**\n\n"
+                    f"✅ Recipients: {len(recipients)}\n"
+                    f"📊 Servers Checked: {len(version_results)}\n"
+                    f"✅ Successful: {successful_checks}\n"
+                    f"❌ Failed: {failed_checks}\n"
+                    f"📈 Success Rate: {success_rate:.1f}%\n\n"
+                    f"Email report has been sent to:\n{', '.join(recipients)}"
+                )
+                self.send_lark_notification(lark_message)
+                
                 return {
                     "status": "success",
                     "message": f"Test version check completed. Email sent to {len(recipients)} recipients.",
@@ -377,6 +390,16 @@ class ImageReconServiceManager:
                     }
                 }
             else:
+                # Send Lark notification for failure
+                lark_message = (
+                    f"❌ **Version Check Email Failed**\n\n"
+                    f"📊 Servers Checked: {len(version_results)}\n"
+                    f"✅ Successful: {successful_checks}\n"
+                    f"❌ Failed: {failed_checks}\n\n"
+                    f"Error: {email_result.get('message')}"
+                )
+                self.send_lark_notification(lark_message)
+                
                 return {
                     "status": "error",
                     "message": f"Version check completed but email failed: {email_result.get('message')}"
