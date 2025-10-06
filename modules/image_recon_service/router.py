@@ -96,21 +96,21 @@ async def search_machines(request: Request):
 
 @router.post("/get-logs")
 async def get_logs(request: Request):
-    """Get logs from a specific server"""
+    """Get logs from a specific server - matches Flask version"""
     try:
         data = await request.json()
         server_ip = data.get('server_ip')
-        lines = data.get('lines', 50)
+        lines = data.get('lines', 100)  # Match Flask default
         
         if not server_ip:
-            return JSONResponse(content={"status": "error", "message": "Server IP is required"})
+            return JSONResponse(content={"status": "error", "message": "Server IP is required"}, status_code=400)
         
-        success, logs = service_manager.get_server_logs(server_ip, lines)
+        logs = service_manager._get_logs_from_server(server_ip, lines)
         
-        if success:
-            return JSONResponse(content={"status": "success", "logs": logs})
-        else:
-            return JSONResponse(content={"status": "error", "message": logs})
+        if "Error:" in logs:
+            return JSONResponse(content={"status": "error", "message": logs}, status_code=500)
+        
+        return JSONResponse(content={"status": "success", "logs": logs})
     except Exception as e:
         return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
 

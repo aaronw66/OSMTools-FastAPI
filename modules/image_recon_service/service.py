@@ -25,8 +25,10 @@ except ImportError:
 
 class ImageReconServiceManager:
     def __init__(self):
-        self.ssh_username = settings.SSH_USERNAME
-        self.ssh_key_path = settings.SSH_KEY_PATH
+        # Use root user and production key for Image Recon servers
+        self.ssh_username = "root"
+        self.ssh_key_filename = "image-recon-prod.pem"
+        self.ssh_key_path = os.path.join(settings.STATIC_DIR, 'keys', self.ssh_key_filename)
         self.email_config_path = os.path.join(settings.TYPE_DIR, 'email.json')
         self.server_cache = {}
         self.last_cache_update = 0
@@ -450,8 +452,52 @@ class ImageReconServiceManager:
             "timestamp": datetime.now().isoformat()
         }
     
-    def check_service_status(self, servers: List[Dict], service_name: str = "image-recognition") -> Dict:
-        """Check service status on selected servers"""
+    def _get_logs_from_server(self, server_ip: str, lines: int = 100) -> str:
+        """Get logs from server using journalctl - matches Flask version exactly"""
+        if not SSH_AVAILABLE:
+            return "Error: SSH not available"
+        
+        try:
+            # Confirm that the private key exists
+            if not os.path.exists(self.ssh_key_path):
+                return f"Error: Private key file does not exist at path: {self.ssh_key_path}"
+            
+            # Create an SSH client
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            
+            # Load the private key for authentication
+            private_key = paramiko.RSAKey.from_private_key_file(self.ssh_key_path)
+            
+            # Attempt SSH connection with a timeout
+            ssh.connect(server_ip, username=self.ssh_username, pkey=private_key, timeout=60)
+            
+            # Run journalctl to fetch logs (exactly like Flask version)
+            command = f"journalctl -u osm -n {lines}"
+            
+            stdin, stdout, stderr = ssh.exec_command(command)
+            
+            # Read the logs
+            logs = stdout.read().decode()
+            
+            # If there's an error from stderr, raise an exception
+            error_message = stderr.read().decode()
+            if error_message:
+                raise Exception(f"Error fetching logs: {error_message}")
+            
+            ssh.close()
+            
+            # If no logs are returned, handle it gracefully
+            if not logs:
+                logs = "No logs available."
+            
+            return logs
+            
+        except Exception as e:
+            return f"Error: {str(e)}"
+    
+    def check_service_status(self, servers: List[Dict], service_name: str = "osm") -> Dict:
+        """Check service status and version on selected servers - matches Flask version"""
         results = []
         
         for server in servers:
@@ -463,29 +509,69 @@ class ImageReconServiceManager:
                     "server": server_hostname,
                     "ip": server_ip,
                     "status": "error",
+                    "version": "Unknown",
                     "message": "No IP address provided"
                 })
                 continue
             
-            # Command to check service status
-            status_command = f"sudo systemctl status {service_name}"
-            
-            success, message = self.execute_ssh_command(server_ip, status_command)
-            
-            # Parse the status to determine if service is running
-            is_running = "active (running)" in message.lower() if success else False
-            
-            results.append({
-                "server": server_hostname,
-                "ip": server_ip,
-                "status": "running" if is_running else "stopped",
-                "message": message,
-                "success": success
-            })
+            try:
+                # Get logs to check version and status (like Flask version)
+                logs = self._get_logs_from_server(server_ip, lines=100)
+                
+                # Check if we got logs successfully
+                if "Error:" in logs:
+                    results.append({
+                        "server": server_hostname,
+                        "ip": server_ip,
+                        "status": "offline",
+                        "version": "Unknown",
+                        "message": logs
+                    })
+                    continue
+                
+                # Extract version from logs (look for version pattern like "3.1.2306-1")
+                version = "Unknown"
+                import re
+                version_match = re.search(r'(\d+\.\d+\.\d+-\d+)', logs)
+                if version_match:
+                    version = version_match.group(1)
+                
+                # Check for offline indicators
+                offline_indicators = ["stopped osm service"]
+                is_offline = any(indicator in logs.lower() for indicator in offline_indicators)
+                
+                # Check for error indicators
+                error_indicators = [
+                    "exception caught: stoi",
+                    "system error",
+                    "segmentation fault",
+                    "cannot open connection",
+                    "core dumped"
+                ]
+                has_errors = any(indicator in logs.lower() for indicator in error_indicators)
+                
+                status = "offline" if is_offline else ("error" if has_errors else "online")
+                
+                results.append({
+                    "server": server_hostname,
+                    "ip": server_ip,
+                    "status": status,
+                    "version": version,
+                    "message": "Service is running" if status == "online" else f"Service has issues: {status}"
+                })
+                
+            except Exception as e:
+                results.append({
+                    "server": server_hostname,
+                    "ip": server_ip,
+                    "status": "error",
+                    "version": "Unknown",
+                    "message": f"Error checking status: {str(e)}"
+                })
         
         return {
             "status": "success",
-            "servers": results,
+            "results": results,
             "timestamp": datetime.now().isoformat()
         }
     
