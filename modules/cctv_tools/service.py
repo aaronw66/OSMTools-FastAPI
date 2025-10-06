@@ -21,13 +21,13 @@ except ImportError:
 from config import settings
 
 
-class CustomDigestAuth(AuthBase):
-    """Custom Digest Authentication for cameras - handles realm errors"""
+class RobustDigestAuth(AuthBase):
+    """Robust Digest Authentication that handles various header formats"""
     
     def __init__(self, username, password):
         self.username = username
         self.password = password
-    
+        
     def __call__(self, r):
         r.register_hook('response', self._handle_401)
         return r
@@ -35,37 +35,42 @@ class CustomDigestAuth(AuthBase):
     def _handle_401(self, response, **kwargs):
         if response.status_code == 401:
             auth_header = response.headers.get('WWW-Authenticate', '')
-            if 'Digest' in auth_header or 'realm=' in auth_header:
+            if 'Digest' in auth_header:
                 try:
-                    challenge = self._parse_challenge(auth_header)
-                    if challenge and 'realm' in challenge:
-                        prep = response.request.copy()
-                        auth_value = self._build_auth_header(prep, challenge)
-                        if auth_value:
-                            prep.headers['Authorization'] = auth_value
-                            _r = response.connection.send(prep, **kwargs)
-                            _r.history.append(response)
-                            return _r
-                except Exception:
+                    challenge = self._parse_challenge_robust(auth_header)
+                    if challenge:
+                        auth_value = self._build_standard_digest_header(response.request, challenge)
+                        new_request = response.request.copy()
+                        new_request.headers['Authorization'] = auth_value
+                        new_response = response.connection.send(new_request, **kwargs)
+                        new_response.history.append(response)
+                        return new_response
+                except Exception as e:
                     pass
         return response
     
-    def _parse_challenge(self, auth_header):
-        import re
-        challenge = {}
-        auth_header = re.sub(r'^(X-)?Digest\s+', '', auth_header)
-        pattern = r'(\w+)=(?:"([^"]*)"|([^,\s]+))'
-        matches = re.findall(pattern, auth_header)
-        for key, quoted_val, unquoted_val in matches:
-            challenge[key] = quoted_val or unquoted_val
-        return challenge if challenge else None
+    def _parse_challenge_robust(self, auth_header):
+        try:
+            challenge_str = auth_header.replace('Digest ', '', 1)
+            challenge = {}
+            parts = re.findall(r'(\w+)=(?:"([^"]*)"|([^,\s]+))', challenge_str)
+            for key, quoted_val, unquoted_val in parts:
+                challenge[key] = quoted_val or unquoted_val
+            
+            required_fields = ['realm', 'nonce']
+            for field in required_fields:
+                if field not in challenge:
+                    return None
+            return challenge
+        except Exception:
+            return None
     
-    def _build_auth_header(self, request, challenge):
+    def _build_standard_digest_header(self, request, challenge):
         realm = challenge.get('realm', '')
         nonce = challenge.get('nonce', '')
         qop = challenge.get('qop', '')
-        algorithm = challenge.get('algorithm', 'MD5')
         opaque = challenge.get('opaque', '')
+        algorithm = challenge.get('algorithm', 'MD5')
         
         cnonce = hashlib.md5(f"{random.random()}:{time.time()}".encode()).hexdigest()[:8]
         uri = request.path_url
@@ -78,12 +83,13 @@ class CustomDigestAuth(AuthBase):
             nc = "00000001"
             response_hash = hashlib.md5(f"{ha1}:{nonce}:{nc}:{cnonce}:{qop}:{ha2}".encode()).hexdigest()
             auth_header = f'Digest username="{self.username}", realm="{realm}", nonce="{nonce}", uri="{uri}", algorithm="{algorithm}", response="{response_hash}", qop="{qop}", nc={nc}, cnonce="{cnonce}"'
+            if opaque:
+                auth_header += f', opaque="{opaque}"'
         else:
             response_hash = hashlib.md5(f"{ha1}:{nonce}:{ha2}".encode()).hexdigest()
             auth_header = f'Digest username="{self.username}", realm="{realm}", nonce="{nonce}", uri="{uri}", algorithm="{algorithm}", response="{response_hash}"'
-        
-        if opaque:
-            auth_header += f', opaque="{opaque}"'
+            if opaque:
+                auth_header += f', opaque="{opaque}"'
         
         return auth_header
 
@@ -413,14 +419,16 @@ class CCTVToolsService:
             device_info_payload = {"Type": 0, "Dev": 1, "Ch": 1, "Data": {}}
             
             try:
-                # Try custom digest auth first, then standard
+                # Try multiple auth methods
                 auth_methods = [
-                    CustomDigestAuth(username, password),
-                    HTTPDigestAuth(username, password)
+                    ("RobustDigest", RobustDigestAuth(username, password)),
+                    ("StandardDigest", HTTPDigestAuth(username, password)),
+                    ("BasicAuth", HTTPBasicAuth(username, password)),
+                    ("NoAuth", None)
                 ]
                 
                 response = None
-                for auth in auth_methods:
+                for auth_name, auth in auth_methods:
                     try:
                         response = requests.post(
                             device_info_url,
@@ -429,6 +437,7 @@ class CCTVToolsService:
                             timeout=5
                         )
                         if response.status_code == 200:
+                            self.logger.info(f"[{ip}] Device info retrieved using {auth_name}")
                             break
                     except Exception:
                         continue
@@ -444,23 +453,30 @@ class CCTVToolsService:
             trtc_config_url = f"http://{ip}/digest/frmTrtcConfig"
             
             try:
-                # Try custom digest auth first, then standard
+                # Try multiple auth methods like the original Flask code
                 auth_methods = [
-                    CustomDigestAuth(username, password),
-                    HTTPDigestAuth(username, password)
+                    ("RobustDigest", RobustDigestAuth(username, password)),
+                    ("StandardDigest", HTTPDigestAuth(username, password)),
+                    ("BasicAuth", HTTPBasicAuth(username, password)),
+                    ("NoAuth", None)
                 ]
                 
                 response = None
-                for auth in auth_methods:
+                last_error = None
+                for auth_name, auth in auth_methods:
                     try:
                         response = requests.get(trtc_config_url, auth=auth, timeout=5)
                         if response.status_code == 200:
+                            self.logger.info(f"[{ip}] TRTC config retrieved using {auth_name}")
                             break
-                    except Exception:
+                        else:
+                            last_error = f"{auth_name} returned {response.status_code}"
+                    except Exception as e:
+                        last_error = f"{auth_name} failed: {str(e)}"
                         continue
                 
-                if not response:
-                    raise Exception("All auth methods failed")
+                if not response or response.status_code != 200:
+                    raise Exception(f"All auth methods failed. Last: {last_error}")
                 
                 if response.status_code == 200:
                     data = response.json().get('Data', {})
