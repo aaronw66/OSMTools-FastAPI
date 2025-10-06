@@ -306,104 +306,92 @@ class CCTVToolsService:
         }
     
     def _check_single_device_status(self, device: Dict) -> Dict:
-        """Check status of a single CCTV device"""
+        """Check status of a single CCTV device - matches original Flask implementation"""
         ip = device['ip']
         room = device.get('room', 'Unknown')
-        user = device.get('user', 'admin')
-        user_sig = device.get('userSig', '')
+        username = device.get('user', 'admin')
+        password = device.get('userSig', '123456')
+        
+        result = {
+            'ip': ip,
+            'room': room,
+            'user': username,
+            'userSig': password,
+            'status': 'error',
+            'message': 'Device offline',
+            'device_name': 'Unknown',
+            'build_date': 'Unknown',
+            'app_id': '20008185',
+            'enable': False,
+            'timestamp': datetime.now().isoformat()
+        }
         
         try:
-            # Try to connect to device API
-            # Common CCTV device endpoints: /api/v1/device/info or /cgi-bin/api.cgi
-            device_url = f"http://{ip}/api/v1/device/info"
+            # Step 1: Ping the device first (like original Flask version)
+            import subprocess
+            import platform
             
-            response = requests.get(
-                device_url,
-                auth=HTTPDigestAuth(user, user_sig) if user_sig else None,
-                timeout=5
-            )
-            
-            if response.status_code == 200:
-                try:
-                    data = response.json()
-                    
-                    # Extract device information from response
-                    firmware = data.get('firmware', data.get('version', data.get('buildDate', 'Unknown')))
-                    device_name = data.get('deviceName', data.get('name', room))
-                    app_id = data.get('appId', data.get('applicationId', '20008185'))
-                    enable = data.get('enable', data.get('enabled', True))
-                    
-                    return {
-                        'ip': ip,
-                        'room': room,
-                        'user': user,
-                        'userSig': user_sig,
-                        'status': 'success',
-                        'message': 'Device online',
-                        'firmware': firmware,
-                        'build_date': firmware,  # Firmware version is the build date
-                        'app_id': app_id,
-                        'device_name': device_name,
-                        'enable': enable,
-                        'timestamp': datetime.now().isoformat()
-                    }
-                except json.JSONDecodeError:
-                    # Device responded but not with JSON
-                    return {
-                        'ip': ip,
-                        'room': room,
-                        'user': user,
-                        'userSig': user_sig,
-                        'status': 'success',
-                        'message': 'Device online',
-                        'firmware': 'Unknown',
-                        'build_date': 'Unknown',
-                        'app_id': '20008185',
-                        'device_name': room,
-                        'enable': True,
-                        'timestamp': datetime.now().isoformat()
-                    }
+            if platform.system().lower() == "windows":
+                ping_cmd = ["ping", "-n", "1", "-w", "5000", ip]
             else:
-                return {
-                    'ip': ip,
-                    'room': room,
-                    'user': user,
-                    'userSig': user_sig,
-                    'status': 'error',
-                    'message': f'Device returned status code {response.status_code}',
-                    'timestamp': datetime.now().isoformat()
-                }
+                ping_cmd = ["ping", "-c", "1", "-W", "5", ip]
+            
+            ping_result = subprocess.run(ping_cmd, capture_output=True, text=True, timeout=7)
+            
+            if ping_result.returncode != 0:
+                result['message'] = 'Device offline - ping failed'
+                return result
+            
+            # Step 2: Get device info from /digest/frmGetFactoryInfo
+            device_info_url = f"http://{ip}/digest/frmGetFactoryInfo"
+            device_info_payload = {"Type": 0, "Dev": 1, "Ch": 1, "Data": {}}
+            
+            try:
+                response = requests.post(
+                    device_info_url,
+                    json=device_info_payload,
+                    auth=HTTPDigestAuth(username, password),
+                    timeout=5
+                )
                 
-        except requests.exceptions.Timeout:
-            return {
-                'ip': ip,
-                'room': room,
-                'user': user,
-                'userSig': user_sig,
-                'status': 'error',
-                'message': 'Device timeout - not responding',
-                'timestamp': datetime.now().isoformat()
-            }
-        except requests.exceptions.ConnectionError:
-            return {
-                'ip': ip,
-                'room': room,
-                'user': user,
-                'userSig': user_sig,
-                'status': 'error',
-                'message': 'Device offline or not reachable',
-                'timestamp': datetime.now().isoformat()
-            }
+                if response.status_code == 200:
+                    data = response.json().get('Data', {})
+                    result['device_name'] = data.get('DeviceName', 'Unknown')
+                    result['build_date'] = data.get('BuildDate', 'Unknown')
+            except Exception as e:
+                self.logger.warning(f"[{ip}] Could not get device info: {e}")
+            
+            # Step 3: Get TRTC config from /digest/frmTrtcConfig
+            trtc_config_url = f"http://{ip}/digest/frmTrtcConfig"
+            
+            try:
+                response = requests.get(
+                    trtc_config_url,
+                    auth=HTTPDigestAuth(username, password),
+                    timeout=5
+                )
+                
+                if response.status_code == 200:
+                    data = response.json().get('Data', {})
+                    result['enable'] = data.get('Enable', 0) == 1
+                    result['app_id'] = str(data.get('AppId', '20008185'))
+                    result['room'] = data.get('Room', room)
+                    result['user'] = data.get('User', username)
+                    result['userSig'] = data.get('UserSig', password)
+            except Exception as e:
+                self.logger.warning(f"[{ip}] Could not get TRTC config: {e}")
+            
+            # If we got here, device is online
+            result['status'] = 'success'
+            result['message'] = 'Device online'
+            
+        except subprocess.TimeoutExpired:
+            result['message'] = 'Device offline - ping timeout'
         except Exception as e:
-            return {
-                'ip': ip,
-                'room': room,
-                'user': user,
-                'userSig': user_sig,
-                'status': 'error',
-                'message': f'Error: {str(e)}',
-                'timestamp': datetime.now().isoformat()
-            }
+            result['message'] = f'Error: {str(e)}'
+            self.logger.error(f"[{ip}] Status check error: {e}")
+        
+        return result
     
     def reboot_devices(self, devices: List[Dict]) -> Dict:
         """Reboot multiple CCTV devices"""
