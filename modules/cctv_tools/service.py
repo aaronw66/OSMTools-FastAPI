@@ -347,8 +347,8 @@ class CCTVToolsService:
         
         results = []
         
-        # Use thread pool for concurrent status checks
-        with futures.ThreadPoolExecutor(max_workers=10) as executor:
+        # Use thread pool for concurrent status checks (5 workers like old Flask version)
+        with futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_to_device = {
                 executor.submit(self._check_single_device_status, device): device 
                 for device in devices
@@ -382,15 +382,17 @@ class CCTVToolsService:
     def _check_single_device_status(self, device: Dict) -> Dict:
         """Check status of a single CCTV device - matches original Flask implementation"""
         ip = device['ip']
-        room = device.get('room', 'Unknown')
-        username = device.get('user', 'admin')
-        password = device.get('userSig', '123456')
+        
+        # IMPORTANT: Always use default credentials for authentication (NOT from CSV)
+        # The CSV Room/User/UserSig are TRTC config values to display, NOT login credentials
+        username = 'admin'
+        password = '123456'
         
         result = {
             'ip': ip,
-            'room': room,
-            'user': username,
-            'userSig': password,
+            'room': device.get('room', 'Unknown'),  # From CSV, will be overwritten by TRTC config
+            'user': device.get('user', 'Unknown'),  # From CSV, will be overwritten by TRTC config
+            'userSig': device.get('userSig', 'Unknown'),  # From CSV, will be overwritten by TRTC config
             'status': 'error',
             'message': 'Device offline',
             'device_name': 'Unknown',
