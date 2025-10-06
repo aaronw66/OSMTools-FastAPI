@@ -327,19 +327,17 @@ class CCTVToolsService:
         }
         
         try:
-            # Step 1: Ping the device first (like original Flask version)
-            import subprocess
-            import platform
+            # Step 1: Check if device is reachable (TCP connection test instead of ping)
+            import socket
             
-            if platform.system().lower() == "windows":
-                ping_cmd = ["ping", "-n", "1", "-w", "5000", ip]
-            else:
-                ping_cmd = ["ping", "-c", "1", "-W", "5", ip]
-            
-            ping_result = subprocess.run(ping_cmd, capture_output=True, text=True, timeout=7)
-            
-            if ping_result.returncode != 0:
-                result['message'] = 'Device offline - ping failed'
+            try:
+                # Try to connect to port 80 (HTTP) with a short timeout
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(3)
+                sock.connect((ip, 80))
+                sock.close()
+            except (socket.timeout, socket.error, OSError) as e:
+                result['message'] = f'Device offline - connection failed: {str(e)}'
                 return result
             
             # Step 2: Get device info from /digest/frmGetFactoryInfo
@@ -392,8 +390,6 @@ class CCTVToolsService:
             result['status'] = 'success'
             result['message'] = 'Device online'
             
-        except subprocess.TimeoutExpired:
-            result['message'] = 'Device offline - ping timeout'
         except Exception as e:
             result['message'] = f'Error: {str(e)}'
             self.logger.error(f"[{ip}] Status check error: {e}")
