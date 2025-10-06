@@ -84,6 +84,10 @@ class ImageReconServiceManager:
         self.ssh_username = "root"
         self.ssh_key_filename = "image-recon-prod.pem"
         self.ssh_key_path = os.path.join('static', 'keys', self.ssh_key_filename)
+        
+        # Version cache: {server_ip: {'version': str, 'timestamp': datetime}}
+        self._version_cache = {}
+        self._version_cache_duration = 600  # 10 minutes in seconds
         self.email_config_path = os.path.join(settings.TYPE_DIR, 'email.json')
         self.server_cache = {}
         self.last_cache_update = 0
@@ -507,12 +511,33 @@ class ImageReconServiceManager:
             "timestamp": datetime.now().isoformat()
         }
     
+    def clear_version_cache(self, server_ip: str = None):
+        """Clear version cache for a specific server or all servers"""
+        if server_ip:
+            if server_ip in self._version_cache:
+                del self._version_cache[server_ip]
+                logger.info(f"🗑️ Cleared version cache for {server_ip}")
+        else:
+            self._version_cache.clear()
+            logger.info("🗑️ Cleared all version cache")
+    
     def _get_server_version(self, server_ip: str) -> str:
-        """Get version from server using journalctl - matches Flask version exactly"""
+        """Get version from server using journalctl with 10-minute cache"""
         if not SSH_AVAILABLE:
             logger.warning(f"[{server_ip}] SSH not available")
             return "Unknown"
         
+        # Check cache first (10-minute cache to reduce SSH connections)
+        current_time = time.time()
+        if server_ip in self._version_cache:
+            cache_entry = self._version_cache[server_ip]
+            cache_age = current_time - cache_entry['timestamp']
+            
+            # If cache is still valid (less than 10 minutes old), return cached version
+            if cache_age < self._version_cache_duration:
+                return cache_entry['version']
+        
+        # Cache miss or expired - fetch from server via SSH
         try:
             # Confirm that the private key exists
             if not os.path.exists(self.ssh_key_path):
@@ -528,7 +553,6 @@ class ImageReconServiceManager:
             
             # Attempt SSH connection with a timeout
             ssh.connect(server_ip, username=self.ssh_username, pkey=private_key, timeout=10)
-            logger.debug(f"[{server_ip}] SSH connected successfully")
             
             # Run journalctl command to get version (exactly like Flask)
             version_cmd = 'journalctl --since "10 minutes ago" | grep -o "version\\[[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+-[0-9]\\+]" | tail -1'
@@ -538,19 +562,24 @@ class ImageReconServiceManager:
             
             ssh.close()
             
-            logger.info(f"[{server_ip}] Version output: '{version_output}'")
-            
             # Extract version from format: version[3.1.2335-1]
+            version = "Unknown"
             if version_output and version_output.startswith('version['):
                 import re
                 version_match = re.search(r'version\[([0-9]+\.[0-9]+\.[0-9]+-[0-9]+)\]', version_output)
                 if version_match:
                     version = version_match.group(1)
-                    logger.info(f"[{server_ip}] ✅ Found version: {version}")
-                    return version
+            else:
+                # Only log if version not found (warning)
+                logger.warning(f"[{server_ip}] ⚠️ No version found in journalctl output")
             
-            logger.warning(f"[{server_ip}] ⚠️ No version found in output")
-            return "Unknown"
+            # Update cache with new version and timestamp
+            self._version_cache[server_ip] = {
+                'version': version,
+                'timestamp': current_time
+            }
+            
+            return version
             
         except Exception as e:
             logger.error(f"[{server_ip}] ❌ Error getting version: {e}")
@@ -710,10 +739,20 @@ class ImageReconServiceManager:
             "timestamp": datetime.now().isoformat()
         }
     
-    def restart_service(self, servers: List[Dict], service_name: str = "osm") -> Dict:
+    def restart_service(self, servers: List[Dict], service_name: str = "osm", initiated_by: str = "Unknown") -> Dict:
         """Restart service on multiple servers - matches Flask version"""
         if not SSH_AVAILABLE:
             return {"status": "error", "message": "SSH functionality not available"}
+        
+        # Log who initiated the restart
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        logger.info("=" * 80)
+        logger.info(f"🔄 SERVICE RESTART INITIATED")
+        logger.info(f"📅 Time: {timestamp}")
+        logger.info(f"👤 Initiated by: {initiated_by}")
+        logger.info(f"🎯 Target servers: {len(servers)}")
+        logger.info(f"🔧 Service: {service_name}")
+        logger.info("=" * 80)
         
         results = []
         
@@ -814,6 +853,17 @@ class ImageReconServiceManager:
                 })
                 # Send error notification to Lark (matches Flask exactly)
                 send_lark_notification(server_ip, hostname, "error", msg, error_str)
+        
+        # Log restart summary
+        success_count = sum(1 for r in results if r.get('status') == 'success')
+        warning_count = sum(1 for r in results if r.get('status') == 'warning')
+        error_count = sum(1 for r in results if r.get('status') == 'error')
+        
+        logger.info("=" * 80)
+        logger.info(f"📊 RESTART OPERATION COMPLETED")
+        logger.info(f"✅ Success: {success_count} | ⚠️ Warning: {warning_count} | ❌ Error: {error_count}")
+        logger.info(f"👤 Initiated by: {initiated_by}")
+        logger.info("=" * 80)
         
         return {
             "status": "success",

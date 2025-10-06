@@ -77,12 +77,17 @@ async def get_all_server_versions():
         return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
 
 @router.post("/restart-service")
-async def restart_service(request: RestartRequest):
+async def restart_service(restart_req: RestartRequest, request: Request):
     """Restart service on selected servers"""
     try:
+        # Get client IP for logging (use initiated_by from request, or fallback to client IP)
+        client_ip = request.client.host if request.client else "Unknown"
+        initiated_by = restart_req.initiated_by or client_ip
+        
         result = service_manager.restart_service(
-            [server.dict() for server in request.servers],
-            request.service_name
+            [server.dict() for server in restart_req.servers],
+            restart_req.service_name,
+            initiated_by
         )
         return JSONResponse(content=result)
     except Exception as e:
