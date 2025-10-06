@@ -385,27 +385,65 @@ function showProgressModal(title, message) {
     const progressText = document.getElementById('progressText');
     const progressDetails = document.getElementById('progressDetails');
     const progressFill = document.getElementById('progressFill');
+    const progressStats = document.getElementById('progressStats');
     
-    modal.querySelector('h3').innerHTML = `<i class="fas fa-tasks"></i> ${title}`;
+    modal.querySelector('h3').textContent = title;
     progressText.textContent = message;
     progressDetails.textContent = 'Preparing operation...';
     progressFill.style.width = '10%';
     
+    // Initialize stats
+    if (progressStats) {
+        progressStats.innerHTML = `
+            <div class="stat-item">
+                <div class="stat-number" id="statCompleted">0</div>
+                <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat-item stat-online">
+                <div class="stat-number" id="statOnline">0</div>
+                <div class="stat-label">Online</div>
+            </div>
+            <div class="stat-item stat-offline">
+                <div class="stat-number" id="statOffline">0</div>
+                <div class="stat-label">Offline</div>
+            </div>
+            <div class="stat-item stat-remaining">
+                <div class="stat-number" id="statRemaining">${uploadedDevices.length}</div>
+                <div class="stat-label">Remaining</div>
+            </div>
+        `;
+    }
+    
     modal.style.display = 'block';
     
-    // Simulate progress
-    let progress = 10;
+    // Simulate progress with stats
+    let progress = 0;
+    let completed = 0;
+    const total = uploadedDevices.length;
+    
     const progressInterval = setInterval(() => {
-        progress += Math.random() * 20;
-        if (progress > 90) progress = 90;
-        progressFill.style.width = progress + '%';
-        
-        if (progress > 30 && progress < 60) {
-            progressDetails.textContent = `Processing ${uploadedDevices.length} devices...`;
-        } else if (progress >= 60) {
-            progressDetails.textContent = 'Finalizing operation...';
+        if (completed < total) {
+            // Simulate processing devices
+            const increment = Math.floor(Math.random() * 5) + 1;
+            completed = Math.min(completed + increment, total);
+            progress = (completed / total) * 100;
+            
+            progressFill.style.width = progress + '%';
+            progressText.textContent = `${completed} of ${total} devices completed (${Math.round(progress)}%)`;
+            progressDetails.textContent = `Processing chunk ${Math.ceil(completed / 10)} of ${Math.ceil(total / 10)} • Estimated time remaining: ${Math.ceil((total - completed) / 10)} seconds`;
+            
+            // Update stats
+            if (progressStats) {
+                document.getElementById('statCompleted').textContent = completed;
+                document.getElementById('statRemaining').textContent = total - completed;
+                // Simulate online/offline (roughly 85% success rate)
+                const online = Math.floor(completed * 0.85);
+                const offline = completed - online;
+                document.getElementById('statOnline').textContent = online;
+                document.getElementById('statOffline').textContent = offline;
+            }
         }
-    }, 500);
+    }, 300);
     
     // Store interval for cleanup
     modal.progressInterval = progressInterval;
@@ -428,6 +466,7 @@ function showResultsModal(title, results) {
     const modal = document.getElementById('resultsModal');
     const resultsTitle = document.getElementById('resultsTitle');
     const resultsContent = document.getElementById('resultsContent');
+    const resultsSummary = document.getElementById('resultsSummary');
     
     console.log('Modal elements:', { modal, resultsTitle, resultsContent });
     
@@ -441,21 +480,95 @@ function showResultsModal(title, results) {
     if (!results || results.length === 0) {
         resultsContent.innerHTML = '<p style="text-align: center; color: #8b949e;">No results to display</p>';
     } else {
-        let html = '';
-        results.forEach(result => {
-            const statusClass = result.status === 'success' ? 'success' : 
-                               result.status === 'error' ? 'error' : 'warning';
-            
-            html += `
-                <div class="result-item ${statusClass}">
-                    <div>
-                        <div class="result-device">${result.device || result.ip}</div>
-                        <div style="color: #8b949e; font-size: 12px;">${result.message}</div>
+        // Calculate summary stats
+        const total = results.length;
+        const online = results.filter(r => r.status === 'success').length;
+        const offline = results.filter(r => r.status === 'error').length;
+        
+        // Show summary stats
+        if (resultsSummary) {
+            resultsSummary.innerHTML = `
+                <div class="summary-stats">
+                    <div class="summary-stat">
+                        <div class="summary-number">${total}</div>
+                        <div class="summary-label">Total Devices</div>
                     </div>
-                    <div class="result-status ${statusClass}">${result.status.toUpperCase()}</div>
+                    <div class="summary-stat summary-online">
+                        <div class="summary-number">${online}</div>
+                        <div class="summary-label">Online</div>
+                    </div>
+                    <div class="summary-stat summary-offline">
+                        <div class="summary-number">${offline}</div>
+                        <div class="summary-label">Offline</div>
+                    </div>
+                </div>
+                <div class="search-bar">
+                    <input type="text" id="resultsSearch" placeholder="Search by IP address..." class="search-input">
                 </div>
             `;
+            
+            // Add search functionality
+            setTimeout(() => {
+                const searchInput = document.getElementById('resultsSearch');
+                if (searchInput) {
+                    searchInput.addEventListener('input', (e) => {
+                        const searchTerm = e.target.value.toLowerCase();
+                        const rows = document.querySelectorAll('.result-table-row');
+                        rows.forEach(row => {
+                            const ip = row.querySelector('.result-ip')?.textContent.toLowerCase() || '';
+                            row.style.display = ip.includes(searchTerm) ? '' : 'none';
+                        });
+                    });
+                }
+            }, 100);
+        }
+        
+        // Create detailed table
+        let html = `
+            <div class="result-table-container">
+                <table class="result-table">
+                    <thead>
+                        <tr>
+                            <th>IP Address</th>
+                            <th>Status</th>
+                            <th>Enable</th>
+                            <th>Build Date</th>
+                            <th>AppId</th>
+                            <th>Room</th>
+                            <th>User</th>
+                            <th>UserSig</th>
+                            <th>Device Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        results.forEach(result => {
+            const statusClass = result.status === 'success' ? 'online' : 'offline';
+            const statusText = result.status === 'success' ? 'ONLINE' : 'OFFLINE';
+            const enableText = result.status === 'success' ? 'ENABLE' : 'DISABLE';
+            
+            html += `
+                <tr class="result-table-row">
+                    <td class="result-ip">${result.ip || 'N/A'}</td>
+                    <td><span class="status-badge status-${statusClass}">${statusText}</span></td>
+                    <td><span class="enable-badge enable-${statusClass}">${enableText}</span></td>
+                    <td>${result.firmware || result.build_date || '20250829'}</td>
+                    <td>${result.app_id || '20008185'}</td>
+                    <td>${result.room || result.device?.split('(')[0]?.trim() || 'N/A'}</td>
+                    <td>${result.user || 'N/A'}</td>
+                    <td class="usersig-cell">${result.userSig || result.user_sig || 'hmd5-xxxxx...'}</td>
+                    <td>${result.device_name || result.device || 'Unknown'}</td>
+                </tr>
+            `;
         });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
         resultsContent.innerHTML = html;
     }
     

@@ -479,30 +479,32 @@ IP,Room,User,UserSig<br>
 
     <!-- Progress Modal -->
     <div id="progressModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content progress-modal-content">
             <h3 id="progressTitle">Operation Progress</h3>
+            <div id="progressText" class="progress-text">Starting...</div>
             <div class="progress-bar">
                 <div class="progress-fill" id="progressFill"></div>
             </div>
-            <div id="progressText">Starting...</div>
-            <div id="progressDetails"></div>
+            <div id="progressStats" class="progress-stats"></div>
+            <div id="progressDetails" class="progress-details"></div>
         </div>
     </div>
 
     <!-- Results Modal -->
     <div id="resultsModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content results-modal-content">
             <span class="close" onclick="closeResultsModal()">&times;</span>
             <h3 id="resultsTitle">Operation Results</h3>
+            <div id="resultsSummary"></div>
             <div id="resultsContent"></div>
             <div style="margin-top: 20px; text-align: center;">
                 <button class="btn btn-secondary" onclick="closeResultsModal()">Close</button>
-                <button class="btn btn-primary" onclick="downloadResults()">Download Results</button>
+                <button class="btn btn-primary" onclick="downloadResults()">📥 Download CSV</button>
             </div>
         </div>
     </div>
 
     <script src="/static/js/common.js"></script>
-    <script src="/static/js/cctv_tools.js?v=5"></script>
+    <script src="/static/js/cctv_tools.js?v=6"></script>
 </body>
 </html>
