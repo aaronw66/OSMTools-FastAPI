@@ -425,8 +425,10 @@ function showProgressModal(title, message) {
     // Show indeterminate progress (no fake simulation)
     progressFill.style.width = '100%';
     progressFill.style.animation = 'pulse 1.5s ease-in-out infinite';
-    progressText.textContent = `Processing ${total} devices...`;
-    progressDetails.textContent = 'Please wait while we check each device';
+    progressText.textContent = `Processing ${total} device${total !== 1 ? 's' : ''}...`;
+    progressDetails.textContent = `Checking ${total} device${total !== 1 ? 's' : ''} - please wait`;
+    
+    console.log(`📊 Progress modal showing: ${total} devices`);
 }
 
 function hideProgressModal() {

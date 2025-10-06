@@ -13,12 +13,80 @@ import tempfile
 
 try:
     import requests
-    from requests.auth import HTTPDigestAuth, HTTPBasicAuth
+    from requests.auth import HTTPDigestAuth, HTTPBasicAuth, AuthBase
     REQUESTS_AVAILABLE = True
 except ImportError:
     REQUESTS_AVAILABLE = False
 
 from config import settings
+
+
+class CustomDigestAuth(AuthBase):
+    """Custom Digest Authentication for cameras - handles realm errors"""
+    
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+    
+    def __call__(self, r):
+        r.register_hook('response', self._handle_401)
+        return r
+    
+    def _handle_401(self, response, **kwargs):
+        if response.status_code == 401:
+            auth_header = response.headers.get('WWW-Authenticate', '')
+            if 'Digest' in auth_header or 'realm=' in auth_header:
+                try:
+                    challenge = self._parse_challenge(auth_header)
+                    if challenge and 'realm' in challenge:
+                        prep = response.request.copy()
+                        auth_value = self._build_auth_header(prep, challenge)
+                        if auth_value:
+                            prep.headers['Authorization'] = auth_value
+                            _r = response.connection.send(prep, **kwargs)
+                            _r.history.append(response)
+                            return _r
+                except Exception:
+                    pass
+        return response
+    
+    def _parse_challenge(self, auth_header):
+        import re
+        challenge = {}
+        auth_header = re.sub(r'^(X-)?Digest\s+', '', auth_header)
+        pattern = r'(\w+)=(?:"([^"]*)"|([^,\s]+))'
+        matches = re.findall(pattern, auth_header)
+        for key, quoted_val, unquoted_val in matches:
+            challenge[key] = quoted_val or unquoted_val
+        return challenge if challenge else None
+    
+    def _build_auth_header(self, request, challenge):
+        realm = challenge.get('realm', '')
+        nonce = challenge.get('nonce', '')
+        qop = challenge.get('qop', '')
+        algorithm = challenge.get('algorithm', 'MD5')
+        opaque = challenge.get('opaque', '')
+        
+        cnonce = hashlib.md5(f"{random.random()}:{time.time()}".encode()).hexdigest()[:8]
+        uri = request.path_url
+        method = request.method
+        
+        ha1 = hashlib.md5(f"{self.username}:{realm}:{self.password}".encode()).hexdigest()
+        ha2 = hashlib.md5(f"{method}:{uri}".encode()).hexdigest()
+        
+        if qop and 'auth' in qop:
+            nc = "00000001"
+            response_hash = hashlib.md5(f"{ha1}:{nonce}:{nc}:{cnonce}:{qop}:{ha2}".encode()).hexdigest()
+            auth_header = f'Digest username="{self.username}", realm="{realm}", nonce="{nonce}", uri="{uri}", algorithm="{algorithm}", response="{response_hash}", qop="{qop}", nc={nc}, cnonce="{cnonce}"'
+        else:
+            response_hash = hashlib.md5(f"{ha1}:{nonce}:{ha2}".encode()).hexdigest()
+            auth_header = f'Digest username="{self.username}", realm="{realm}", nonce="{nonce}", uri="{uri}", algorithm="{algorithm}", response="{response_hash}"'
+        
+        if opaque:
+            auth_header += f', opaque="{opaque}"'
+        
+        return auth_header
+
 
 class CCTVToolsService:
     def __init__(self):
@@ -345,14 +413,27 @@ class CCTVToolsService:
             device_info_payload = {"Type": 0, "Dev": 1, "Ch": 1, "Data": {}}
             
             try:
-                response = requests.post(
-                    device_info_url,
-                    json=device_info_payload,
-                    auth=HTTPDigestAuth(username, password),
-                    timeout=5
-                )
+                # Try custom digest auth first, then standard
+                auth_methods = [
+                    CustomDigestAuth(username, password),
+                    HTTPDigestAuth(username, password)
+                ]
                 
-                if response.status_code == 200:
+                response = None
+                for auth in auth_methods:
+                    try:
+                        response = requests.post(
+                            device_info_url,
+                            json=device_info_payload,
+                            auth=auth,
+                            timeout=5
+                        )
+                        if response.status_code == 200:
+                            break
+                    except Exception:
+                        continue
+                
+                if response and response.status_code == 200:
                     data = response.json().get('Data', {})
                     result['device_name'] = data.get('DeviceName', 'Unknown')
                     result['build_date'] = data.get('BuildDate', 'Unknown')
@@ -363,11 +444,23 @@ class CCTVToolsService:
             trtc_config_url = f"http://{ip}/digest/frmTrtcConfig"
             
             try:
-                response = requests.get(
-                    trtc_config_url,
-                    auth=HTTPDigestAuth(username, password),
-                    timeout=5
-                )
+                # Try custom digest auth first, then standard
+                auth_methods = [
+                    CustomDigestAuth(username, password),
+                    HTTPDigestAuth(username, password)
+                ]
+                
+                response = None
+                for auth in auth_methods:
+                    try:
+                        response = requests.get(trtc_config_url, auth=auth, timeout=5)
+                        if response.status_code == 200:
+                            break
+                    except Exception:
+                        continue
+                
+                if not response:
+                    raise Exception("All auth methods failed")
                 
                 if response.status_code == 200:
                     data = response.json().get('Data', {})
