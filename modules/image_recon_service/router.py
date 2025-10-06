@@ -165,10 +165,84 @@ async def refresh_servers():
 
 @router.get("/get-email-settings")
 async def get_email_settings():
-    """Get current email configuration"""
+    """Get current email configuration - matches Flask version"""
     try:
         config = service_manager.load_email_config()
-        return JSONResponse(content={"status": "success", "config": config})
+        
+        # Calculate next run time if schedule is enabled
+        # TODO: Implement schedule calculation
+        
+        return JSONResponse(content={
+            "status": "success",
+            "config": config
+        })
+    except Exception as e:
+        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+
+@router.post("/add-email-recipient")
+async def add_email_recipient(request: Request):
+    """Add new email recipient - matches Flask version"""
+    try:
+        data = await request.json()
+        email = data.get('email', '').strip()
+        
+        if not email:
+            return JSONResponse(content={
+                "status": "error",
+                "message": "Email address is required"
+            }, status_code=400)
+        
+        # Basic email validation
+        import re
+        email_regex = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+        if not re.match(email_regex, email):
+            return JSONResponse(content={
+                "status": "error",
+                "message": "Please enter a valid email address"
+            }, status_code=400)
+        
+        success, message = service_manager.add_email_recipient(email)
+        
+        if success:
+            return JSONResponse(content={
+                "status": "success",
+                "message": message
+            })
+        else:
+            return JSONResponse(content={
+                "status": "error",
+                "message": message
+            }, status_code=400)
+            
+    except Exception as e:
+        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+
+@router.post("/remove-email-recipient")
+async def remove_email_recipient(request: Request):
+    """Remove email recipient - matches Flask version"""
+    try:
+        data = await request.json()
+        email = data.get('email', '').strip()
+        
+        if not email:
+            return JSONResponse(content={
+                "status": "error",
+                "message": "Email address is required"
+            }, status_code=400)
+        
+        success, message = service_manager.remove_email_recipient(email)
+        
+        if success:
+            return JSONResponse(content={
+                "status": "success",
+                "message": message
+            })
+        else:
+            return JSONResponse(content={
+                "status": "error",
+                "message": message
+            }, status_code=400)
+            
     except Exception as e:
         return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
 

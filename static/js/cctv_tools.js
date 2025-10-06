@@ -281,8 +281,10 @@ async function executeConfiguration(devices) {
 async function updateFirmware() {
     if (!validateOperation()) return;
     
+    const firmwareVersion = document.getElementById('firmwareVersion').value;
+    
     currentOperation = 'update';
-    showProgressModal('Updating Firmware', 'Starting firmware update...');
+    showProgressModal('Preparing Firmware Update', 'Loading device information...');
     
     try {
         const response = await fetch('/cctv-tools/update-firmware', {
@@ -292,7 +294,7 @@ async function updateFirmware() {
             },
             body: JSON.stringify({
                 devices: uploadedDevices,
-                firmware_version: document.getElementById('firmwareVersion').value
+                firmware_version: firmwareVersion
             })
         });
         
@@ -301,14 +303,12 @@ async function updateFirmware() {
         // Always hide progress modal before showing results or errors
         hideProgressModal();
         
-        if (data.status === 'success') {
-            operationResults = data.results;
-            // Add small delay to ensure modal closes before showing results
-            setTimeout(() => {
-                showResultsModal('Firmware Update Results', data.results);
-            }, 100);
+        // Check if preparation was successful (note: returns 'success: true', not 'status')
+        if (data.success) {
+            // Show the firmware update modal with UPDATE and REBOOT buttons for each device
+            showFirmwareUpdateModal(data.results, firmwareVersion);
         } else {
-            showAlert('Firmware update failed: ' + data.message, 'error');
+            showAlert('Firmware update failed: ' + (data.message || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Firmware update error:', error);
@@ -692,6 +692,143 @@ function renderConfigDeviceTable() {
     });
     
     deviceListBody.innerHTML = html;
+}
+
+function showFirmwareUpdateModal(devices, firmwareVersion) {
+    const modal = document.getElementById('firmwareUpdateModal');
+    const deviceListBody = document.getElementById('firmwareDeviceList');
+    const totalDevicesSpan = document.getElementById('firmwareTotalDevices');
+    const firmwareNameSpan = document.getElementById('firmwareName');
+    
+    // Store devices globally for access
+    window.firmwareDevices = devices;
+    window.firmwareVersion = firmwareVersion;
+    
+    // Set total devices count and firmware name
+    totalDevicesSpan.textContent = devices.length;
+    firmwareNameSpan.textContent = firmwareVersion;
+    
+    // Render device table
+    renderFirmwareDeviceTable();
+    
+    // Show modal
+    modal.style.display = 'flex';
+}
+
+function renderFirmwareDeviceTable() {
+    const deviceListBody = document.getElementById('firmwareDeviceList');
+    const devices = window.firmwareDevices || [];
+    
+    let html = '';
+    devices.forEach((device, index) => {
+        const statusClass = device.status === 'READY' ? 'status-ready' : 
+                           device.status === 'UPDATING' ? 'status-updating' :
+                           device.status === 'SUCCESS' ? 'status-success' : 'status-error';
+        
+        html += `
+            <tr data-device-index="${index}">
+                <td>${device.ip}</td>
+                <td>${device.device_name || 'Unknown'}</td>
+                <td>${device.build_date || 'Unknown'}</td>
+                <td>${device.model || 'Unknown'}</td>
+                <td><span class="status-badge ${statusClass}">${device.status}</span></td>
+                <td class="action-cell">
+                    <button class="action-btn update-btn" onclick="updateSingleFirmware(${index})" 
+                            ${device.status !== 'READY' ? 'disabled' : ''}>
+                        <i class="fas fa-upload"></i> UPDATE
+                    </button>
+                    <button class="action-btn reboot-btn" onclick="rebootSingleDeviceFromFirmwareModal(${index})">
+                        <i class="fas fa-power-off"></i> REBOOT
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    deviceListBody.innerHTML = html;
+}
+
+async function updateSingleFirmware(index) {
+    const devices = window.firmwareDevices;
+    const device = devices[index];
+    const firmwareVersion = window.firmwareVersion;
+    
+    // Update UI to show updating status
+    device.status = 'UPDATING';
+    renderFirmwareDeviceTable();
+    
+    try {
+        const response = await fetch('/cctv-tools/update-single-firmware', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                ip: device.ip,
+                username: device.username || 'admin',
+                password: device.password || '123456',
+                firmware_version: firmwareVersion
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            device.status = 'SUCCESS';
+            showAlert(`Firmware updated successfully for ${device.ip}`, 'success');
+        } else {
+            device.status = 'ERROR';
+            device.error = data.error || 'Update failed';
+            showAlert(`Firmware update failed for ${device.ip}: ${device.error}`, 'error');
+        }
+    } catch (error) {
+        device.status = 'ERROR';
+        device.error = error.message;
+        showAlert(`Error updating ${device.ip}: ${error.message}`, 'error');
+    }
+    
+    // Refresh the table
+    renderFirmwareDeviceTable();
+}
+
+async function rebootSingleDeviceFromFirmwareModal(index) {
+    const devices = window.firmwareDevices;
+    const device = devices[index];
+    
+    if (!confirm(`Are you sure you want to reboot ${device.ip}?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/cctv-tools/reboot-devices', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                devices: [{
+                    ip: device.ip,
+                    username: device.username || 'admin',
+                    password: device.password || '123456'
+                }]
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            showAlert(`Reboot command sent to ${device.ip}`, 'success');
+        } else {
+            showAlert(`Reboot failed for ${device.ip}: ${data.message}`, 'error');
+        }
+    } catch (error) {
+        showAlert(`Error rebooting ${device.ip}: ${error.message}`, 'error');
+    }
+}
+
+function closeFirmwareUpdateModal() {
+    const modal = document.getElementById('firmwareUpdateModal');
+    modal.style.display = 'none';
 }
 
 function sortConfigTable(column) {

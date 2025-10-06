@@ -211,6 +211,57 @@ class ImageReconServiceManager:
             print(f"Error saving email config: {e}")
             return False
     
+    def add_email_recipient(self, email: str) -> tuple:
+        """Add new recipient to the email list - matches Flask version"""
+        try:
+            config = self.load_email_config()
+            
+            # Check if email already exists (case-insensitive)
+            if email.lower() in [r.lower() for r in config["recipients"]]:
+                return False, "Email already exists in the recipient list"
+            
+            # Add the email
+            config["recipients"].append(email)
+            
+            # Save configuration
+            if self.save_email_config(config):
+                logger.info(f"📧 Added email recipient: {email}")
+                return True, f"Recipient {email} added successfully"
+            else:
+                return False, "Failed to save configuration"
+                
+        except Exception as e:
+            logger.error(f"❌ Error adding email recipient: {str(e)}")
+            return False, f"Error: {str(e)}"
+    
+    def remove_email_recipient(self, email: str) -> tuple:
+        """Remove recipient from the email list - matches Flask version"""
+        try:
+            config = self.load_email_config()
+            original_count = len(config["recipients"])
+            
+            # Remove the email (case-insensitive)
+            config["recipients"] = [r for r in config["recipients"] if r.lower() != email.lower()]
+            
+            # Check if we're trying to remove the last recipient
+            if len(config["recipients"]) == 0:
+                return False, "Cannot remove all recipients. At least one recipient is required."
+            
+            # Check if email was found
+            if len(config["recipients"]) == original_count:
+                return False, "Email address not found in recipient list"
+            
+            # Save configuration
+            if self.save_email_config(config):
+                logger.info(f"📧 Removed email recipient: {email}")
+                return True, f"Recipient {email} removed successfully"
+            else:
+                return False, "Failed to save configuration"
+                
+        except Exception as e:
+            logger.error(f"❌ Error removing email recipient: {str(e)}")
+            return False, f"Error: {str(e)}"
+    
     def search_machines(self, query: str) -> List[Dict]:
         """Search for machines in ir.json by machine ID - matches Flask version"""
         if not query or len(query.strip()) < 2:

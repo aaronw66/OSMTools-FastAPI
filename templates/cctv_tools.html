@@ -147,6 +147,38 @@ IP,Room,User,UserSig<br>
         </div>
     </div>
 
+    <!-- Firmware Update Modal -->
+    <div id="firmwareUpdateModal" class="modal">
+        <div class="modal-content config-modal-content">
+            <span class="close" onclick="closeFirmwareUpdateModal()">&times;</span>
+            <h3>📦 Firmware Update</h3>
+            <div class="modal-header-info">
+                <p><strong>Firmware:</strong> <span id="firmwareName"></span></p>
+                <p><strong>Total Devices:</strong> <span id="firmwareTotalDevices">0</span></p>
+            </div>
+            <div class="config-table-container">
+                <table class="config-device-table">
+                    <thead>
+                        <tr>
+                            <th>IP Address</th>
+                            <th>Device Name</th>
+                            <th>Build Date</th>
+                            <th>Model</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="firmwareDeviceList">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeFirmwareUpdateModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <link rel="stylesheet" href="/static/css/cctv_tools.css?v=1759732258">
     <script src="/static/js/common.js?v=1759732258"></script>
     <script src="/static/js/cctv_tools.js?v=1759732258"></script>
