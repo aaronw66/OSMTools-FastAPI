@@ -176,17 +176,17 @@ class CCTVToolsService:
         """Get available firmware versions"""
         return self.firmware_versions
     
-    def configure_devices(self, devices: List[Dict], firmware_version: str) -> Dict:
-        """Configure multiple CCTV devices"""
+    def configure_devices(self, devices: List[Dict], firmware_version: str = '') -> Dict:
+        """Configure multiple CCTV devices with TRTC settings (firmware_version not used for configuration)"""
         if not REQUESTS_AVAILABLE:
             return {"status": "error", "message": "Requests library not available"}
         
-        self.logger.info(f"Starting configuration for {len(devices)} devices with firmware {firmware_version}")
+        self.logger.info(f"Starting TRTC configuration for {len(devices)} devices")
         
         results = []
         
-        # Use thread pool for concurrent operations
-        with futures.ThreadPoolExecutor(max_workers=5) as executor:
+        # Use thread pool for concurrent operations (3 workers like old Flask version)
+        with futures.ThreadPoolExecutor(max_workers=3) as executor:
             future_to_device = {
                 executor.submit(self._configure_single_device, device, firmware_version): device 
                 for device in devices
@@ -220,42 +220,131 @@ class CCTVToolsService:
         }
     
     def _configure_single_device(self, device: Dict, firmware_version: str) -> Dict:
-        """Configure a single CCTV device"""
+        """Configure a single CCTV device with TRTC settings - matches old Flask implementation"""
         ip = device['ip']
-        user = device.get('user', 'admin')
+        room = device.get('room', '')
+        user = device.get('user', '')
         user_sig = device.get('userSig', '')
         
+        # Use default credentials for authentication
+        username = 'admin'
+        password = '123456'
+        
+        result = {
+            'ip': ip,
+            'room': room,
+            'user': user,
+            'status': 'error',
+            'message': '',
+            'device_name': 'Unknown',
+            'build_date': 'Unknown',
+            'timestamp': datetime.now().isoformat()
+        }
+        
         try:
-            # Simulate device configuration (replace with actual API calls)
-            time.sleep(random.uniform(0.5, 2.0))  # Simulate network delay
+            # Step 1: Get device info
+            device_info_url = f"http://{ip}/digest/frmGetFactoryInfo"
+            device_info_payload = {"Type": 0, "Dev": 1, "Ch": 1, "Data": {}}
             
-            # In real implementation, this would make HTTP requests to the device
-            # Example: Configure device settings, upload firmware, etc.
+            try:
+                auth_methods = [
+                    ("RobustDigest", RobustDigestAuth(username, password)),
+                    ("StandardDigest", HTTPDigestAuth(username, password)),
+                    ("BasicAuth", HTTPBasicAuth(username, password)),
+                ]
+                
+                for auth_name, auth in auth_methods:
+                    try:
+                        response = requests.post(device_info_url, json=device_info_payload, auth=auth, timeout=5)
+                        if response.status_code == 200:
+                            data = response.json().get('Data', {})
+                            result['device_name'] = data.get('DeviceName', 'Unknown')
+                            result['build_date'] = data.get('BuildDate', 'Unknown')
+                            break
+                    except Exception:
+                        continue
+            except Exception as e:
+                self.logger.warning(f"[{ip}] Could not get device info: {e}")
             
-            # For now, simulate success/failure based on IP pattern
-            if self._simulate_device_response(ip):
-                return {
-                    'ip': ip,
-                    'status': 'success',
-                    'message': 'Device configured successfully',
-                    'firmware': firmware_version,
-                    'timestamp': datetime.now().isoformat()
+            # Step 2: Disable RTMP Push (must be done first)
+            rtmp_url = f"http://{ip}/digest/frmRtmpPushCfg"
+            rtmp_payload = {
+                "Type": 1,
+                "Dev": 1,
+                "Ch": 1,
+                "Data": {
+                    "PushCfg": {
+                        "Client0": {
+                            "Stream0": {
+                                "Enable": 0,
+                                "EnableAudio": 0,
+                                "Url": ""
+                            }
+                        }
+                    }
                 }
-            else:
-                return {
-                    'ip': ip,
-                    'status': 'error',
-                    'message': 'Device configuration failed - connection timeout',
-                    'timestamp': datetime.now().isoformat()
+            }
+            
+            try:
+                self.logger.info(f"[{ip}] Disabling RTMP push")
+                for auth_name, auth in auth_methods:
+                    try:
+                        response = requests.post(rtmp_url, json=rtmp_payload, auth=auth, timeout=30)
+                        if response.status_code == 200:
+                            self.logger.info(f"[{ip}] RTMP disabled using {auth_name}")
+                            break
+                    except Exception:
+                        continue
+            except Exception as e:
+                self.logger.warning(f"[{ip}] RTMP disable failed: {e}")
+            
+            # Step 3: Configure TRTC
+            trtc_url = f"http://{ip}/digest/frmTrtcConfig"
+            trtc_payload = {
+                "Type": 1,
+                "Dev": 1,
+                "Ch": 1,
+                "Data": {
+                    "Enable": 1,
+                    "AppId": 20008185,
+                    "Room": room,
+                    "User": user,
+                    "UserSig": user_sig
                 }
+            }
+            
+            self.logger.info(f"[{ip}] Configuring TRTC: Room={room}, User={user}")
+            
+            trtc_success = False
+            for auth_name, auth in auth_methods:
+                try:
+                    response = requests.post(trtc_url, json=trtc_payload, auth=auth, timeout=30)
+                    if response.status_code == 200:
+                        response_json = response.json()
+                        result_code = response_json.get('Result', -1)
+                        error_string = response_json.get('ErrorString', 'Unknown')
+                        
+                        if result_code == 0:
+                            trtc_success = True
+                            result['status'] = 'success'
+                            result['message'] = f'TRTC configured successfully using {auth_name}'
+                            self.logger.info(f"[{ip}] ✅ TRTC configuration successful")
+                            break
+                        else:
+                            result['message'] = f'TRTC API error: {error_string} (Code: {result_code})'
+                            self.logger.warning(f"[{ip}] TRTC API error: {result_code} - {error_string}")
+                            break
+                except Exception as e:
+                    continue
+            
+            if not trtc_success and not result['message']:
+                result['message'] = 'All authentication methods failed for TRTC configuration'
                 
         except Exception as e:
-            return {
-                'ip': ip,
-                'status': 'error',
-                'message': f'Configuration error: {str(e)}',
-                'timestamp': datetime.now().isoformat()
-            }
+            result['message'] = f'Configuration error: {str(e)}'
+            self.logger.error(f"[{ip}] Configuration error: {e}")
+        
+        return result
     
     def update_firmware(self, devices: List[Dict], firmware_version: str) -> Dict:
         """Update firmware on multiple CCTV devices"""
@@ -551,37 +640,72 @@ class CCTVToolsService:
         }
     
     def _reboot_single_device(self, device: Dict) -> Dict:
-        """Reboot a single CCTV device"""
+        """Reboot a single CCTV device - matches old Flask implementation"""
         ip = device['ip']
         
+        # Use default credentials for authentication
+        username = 'admin'
+        password = '123456'
+        
+        result = {
+            'ip': ip,
+            'status': 'error',
+            'message': 'Reboot failed',
+            'timestamp': datetime.now().isoformat()
+        }
+        
         try:
-            # Simulate reboot process
-            time.sleep(random.uniform(1.0, 3.0))
+            reboot_url = f"http://{ip}/digest/frmDeviceReboot"
             
-            # In real implementation, this would send reboot command to device
+            # Try multiple authentication methods
+            auth_methods = [
+                ("RobustDigest", RobustDigestAuth(username, password)),
+                ("StandardDigest", HTTPDigestAuth(username, password)),
+                ("BasicAuth", HTTPBasicAuth(username, password)),
+            ]
             
-            if self._simulate_device_response(ip):
-                return {
-                    'ip': ip,
-                    'status': 'success',
-                    'message': 'Device rebooted successfully',
-                    'timestamp': datetime.now().isoformat()
-                }
-            else:
-                return {
-                    'ip': ip,
-                    'status': 'error',
-                    'message': 'Reboot command failed - device not responding',
-                    'timestamp': datetime.now().isoformat()
-                }
+            for auth_name, auth in auth_methods:
+                try:
+                    self.logger.info(f"[{ip}] Trying {auth_name} authentication for reboot")
+                    
+                    # Make POST request without payload (as per curl command)
+                    response = requests.post(
+                        reboot_url,
+                        headers={"Content-Type": "application/json"},
+                        auth=auth,
+                        timeout=30
+                    )
+                    
+                    if response.status_code >= 200 and response.status_code < 300:
+                        try:
+                            response_json = response.json()
+                            result_code = response_json.get('Result', -1)
+                            if result_code == 0:
+                                result['status'] = 'success'
+                                result['message'] = f'Device reboot command sent successfully using {auth_name}'
+                                self.logger.info(f"[{ip}] ✅ Device reboot successful")
+                                return result
+                            else:
+                                error_string = response_json.get('ErrorString', 'Unknown error')
+                                result['message'] = f'Reboot API error: {error_string} (Code: {result_code})'
+                                self.logger.warning(f"[{ip}] Reboot API error: {result_code} - {error_string}")
+                                return result
+                        except Exception:
+                            # If we can't parse JSON but got 200, assume success
+                            result['status'] = 'success'
+                            result['message'] = f'Device reboot initiated using {auth_name} (HTTP {response.status_code})'
+                            return result
+                except Exception as e:
+                    self.logger.warning(f"[{ip}] {auth_name} auth failed for reboot: {e}")
+                    continue
+            
+            result['message'] = 'All authentication methods failed for reboot'
                 
         except Exception as e:
-            return {
-                'ip': ip,
-                'status': 'error',
-                'message': f'Reboot error: {str(e)}',
-                'timestamp': datetime.now().isoformat()
-            }
+            result['message'] = f'Reboot error: {str(e)}'
+            self.logger.error(f"[{ip}] Reboot error: {e}")
+        
+        return result
     
     
     def batch_operation(self, operation: str, devices: List[Dict], **kwargs) -> Dict:

@@ -491,6 +491,50 @@ IP,Room,User,UserSig<br>
     </div>
 
     <!-- Results Modal -->
+    <!-- Configuration Modal -->
+    <div id="configurationModal" class="modal">
+        <div class="modal-content config-modal-content">
+            <span class="close" onclick="closeConfigurationModal()">&times;</span>
+            <h3>Device Configuration</h3>
+            
+            <div class="config-info">
+                <p><strong>Total Devices:</strong> <span id="configTotalDevices">0</span></p>
+                <p><strong>Operation:</strong> TRTC configuration will be applied to all devices</p>
+                <p><strong>Settings:</strong> Room, User, and UserSig values from CSV will be configured</p>
+            </div>
+            
+            <div style="margin: 20px 0; text-align: center;">
+                <button class="btn btn-primary" onclick="configureAllDevicesFromModal()">
+                    Configure All Devices
+                </button>
+                <button class="btn btn-secondary" onclick="closeConfigurationModal()">
+                    Cancel
+                </button>
+            </div>
+            
+            <h4>Device List</h4>
+            <div class="config-device-table-container">
+                <table class="config-device-table">
+                    <thead>
+                        <tr>
+                            <th>IP ADDRESS</th>
+                            <th>DEVICE NAME</th>
+                            <th>ROOM</th>
+                            <th>USER</th>
+                            <th>BUILD DATE</th>
+                            <th>STATUS</th>
+                            <th>ACTION</th>
+                        </tr>
+                    </thead>
+                    <tbody id="configDeviceList">
+                        <!-- Device rows will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Modal -->
     <div id="resultsModal" class="modal">
         <div class="modal-content results-modal-content">
             <span class="close" onclick="closeResultsModal()">&times;</span>
@@ -504,7 +548,8 @@ IP,Room,User,UserSig<br>
         </div>
     </div>
 
-    <script src="/static/js/common.js?v=1759723607"></script>
-    <script src="/static/js/cctv_tools.js?v=1759723607"></script>
+    <link rel="stylesheet" href="/static/css/cctv_tools.css?v=1759730097">
+    <script src="/static/js/common.js?v=1759730097"></script>
+    <script src="/static/js/cctv_tools.js?v=1759730097"></script>
 </body>
 </html>

@@ -41,21 +41,58 @@ async def get_firmware_versions():
     except Exception as e:
         return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
 
-@router.post("/configure-devices")
-async def configure_devices(request: Request):
-    """Configure multiple CCTV devices"""
+@router.post("/prepare-configuration")
+async def prepare_configuration(request: Request):
+    """Prepare configuration modal - show device list instantly without checking status"""
     try:
         data = await request.json()
         devices = data.get('devices', [])
-        firmware_version = data.get('firmware_version', '')
         
         if not devices:
             return JSONResponse(content={"status": "error", "message": "No devices provided"})
         
-        if not firmware_version:
-            return JSONResponse(content={"status": "error", "message": "Firmware version is required"})
+        # Prepare device list for configuration modal (instant, no status check)
+        results = []
+        for device in devices:
+            ip = device.get('ip', '')
+            if not ip:
+                continue
+            
+            # Extract device name from IP (last octet)
+            device_name = ip.split('.')[-1] if '.' in ip else ip
+            
+            results.append({
+                'ip': ip,
+                'device_name': device_name,
+                'room': device.get('room', ''),
+                'user': device.get('user', ''),
+                'user_sig': device.get('userSig', ''),
+                'build_date': '',  # Will be populated during actual configuration
+                'status': 'ONLINE',  # Assume online for modal display
+            })
         
-        result = service.configure_devices(devices, firmware_version)
+        return JSONResponse(content={
+            'success': True,
+            'results': results,
+            'operation_type': 'Configuration',
+            'total_devices': len(results),
+            'message': f'Ready to configure {len(results)} devices'
+        })
+    except Exception as e:
+        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+
+@router.post("/configure-devices")
+async def configure_devices(request: Request):
+    """Configure multiple CCTV devices with TRTC settings"""
+    try:
+        data = await request.json()
+        devices = data.get('devices', [])
+        
+        if not devices:
+            return JSONResponse(content={"status": "error", "message": "No devices provided"})
+        
+        # Configuration doesn't need firmware version - it only needs Room/User/UserSig from CSV
+        result = service.configure_devices(devices, '')
         
         # Save results
         if result.get('results'):

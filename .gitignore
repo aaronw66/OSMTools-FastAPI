@@ -4,3 +4,4 @@
 logs/cctv_tools.log
 *.log
 logs/cctv_tools.log
+*.pyc

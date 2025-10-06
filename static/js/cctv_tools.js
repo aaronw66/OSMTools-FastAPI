@@ -200,7 +200,36 @@ async function configureDevices() {
     if (!validateOperation()) return;
     
     currentOperation = 'configure';
-    showProgressModal('Configuring Devices', 'Starting device configuration...');
+    
+    try {
+        // Step 1: Prepare configuration modal (instant, no device checking)
+        const response = await fetch('/cctv-tools/prepare-configuration', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                devices: uploadedDevices
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Show configuration modal with device list
+            showConfigurationModal(data.results);
+        } else {
+            showAlert('Failed to prepare configuration: ' + (data.message || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Configuration preparation error:', error);
+        showAlert('Failed to prepare configuration: ' + error.message, 'error');
+    }
+}
+
+async function executeConfiguration(devices) {
+    // Step 2: Execute actual configuration after user confirms
+    showProgressModal('Configuring Devices', 'Starting TRTC configuration...');
     
     try {
         const response = await fetch('/cctv-tools/configure-devices', {
@@ -209,8 +238,7 @@ async function configureDevices() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                devices: uploadedDevices,
-                firmware_version: document.getElementById('firmwareVersion').value
+                devices: devices
             })
         });
         
@@ -323,13 +351,16 @@ async function checkStatus() {
     }
 }
 
-async function rebootDevices() {
-    if (uploadedDevices.length === 0) {
+async function rebootDevices(devices = null) {
+    // Use provided devices or default to uploaded devices
+    const devicesToReboot = devices || uploadedDevices;
+    
+    if (devicesToReboot.length === 0) {
         showAlert('Please upload a CSV file with device information first', 'error');
         return;
     }
     
-    const confirmed = confirm(`Are you sure you want to reboot ${uploadedDevices.length} device(s)?`);
+    const confirmed = confirm(`Are you sure you want to reboot ${devicesToReboot.length} device(s)?`);
     if (!confirmed) return;
     
     currentOperation = 'reboot';
@@ -342,7 +373,7 @@ async function rebootDevices() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                devices: uploadedDevices
+                devices: devicesToReboot
             })
         });
         
@@ -397,8 +428,9 @@ function showProgressModal(title, message) {
     
     modal.querySelector('h3').textContent = title;
     progressText.textContent = message;
-    progressDetails.textContent = 'Starting operation...';
-    progressFill.style.width = '0%';
+    progressDetails.textContent = 'Preparing operation...';
+    progressFill.style.width = '10%';
+    progressFill.style.animation = 'none'; // Remove pulse animation
     
     const total = uploadedDevices.length;
     
@@ -426,11 +458,22 @@ function showProgressModal(title, message) {
     
     modal.style.display = 'block';
     
-    // Show indeterminate progress (no fake simulation)
-    progressFill.style.width = '100%';
-    progressFill.style.animation = 'pulse 1.5s ease-in-out infinite';
-    progressText.textContent = `Processing ${total} device${total !== 1 ? 's' : ''}...`;
-    progressDetails.textContent = `Checking ${total} device${total !== 1 ? 's' : ''} - please wait`;
+    // Simulate progress like the old Flask version
+    let progress = 10;
+    const progressInterval = setInterval(() => {
+        progress += Math.random() * 20;
+        if (progress > 90) progress = 90; // Cap at 90% until real results come back
+        progressFill.style.width = progress + '%';
+        
+        if (progress > 30 && progress < 60) {
+            progressDetails.textContent = `Processing ${total} device${total !== 1 ? 's' : ''}...`;
+        } else if (progress >= 60) {
+            progressDetails.textContent = 'Finalizing operation...';
+        }
+    }, 500);
+    
+    // Store interval for cleanup
+    modal.progressInterval = progressInterval;
     
     console.log(`📊 Progress modal showing: ${total} devices`);
 }
@@ -586,11 +629,88 @@ function closeResultsModal() {
     document.getElementById('resultsModal').style.display = 'none';
 }
 
+function showConfigurationModal(devices) {
+    const modal = document.getElementById('configurationModal');
+    const deviceListBody = document.getElementById('configDeviceList');
+    const totalDevicesSpan = document.getElementById('configTotalDevices');
+    
+    // Set total devices count
+    totalDevicesSpan.textContent = devices.length;
+    
+    // Build device list table
+    let html = '';
+    devices.forEach((device, index) => {
+        const statusClass = device.status === 'ONLINE' ? 'online' : 'offline';
+        html += `
+            <tr>
+                <td>${device.ip}</td>
+                <td>${device.device_name || ''}</td>
+                <td>${device.room || ''}</td>
+                <td>${device.user || ''}</td>
+                <td>${device.build_date || ''}</td>
+                <td><span class="status-badge ${statusClass}">${device.status || 'ONLINE'}</span></td>
+                <td>
+                    <button class="btn-configure" onclick="configureSingleDevice('${device.ip}', ${index})">
+                        <i class="fas fa-cog"></i> CONFIGURE
+                    </button>
+                    <button class="btn-reboot" onclick="rebootSingleDevice('${device.ip}')">
+                        <i class="fas fa-power-off"></i> REBOOT
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    deviceListBody.innerHTML = html;
+    modal.style.display = 'block';
+    
+    // Store devices for later use
+    window.configDevices = devices;
+}
+
+async function configureSingleDevice(ip, index) {
+    const device = window.configDevices.find(d => d.ip === ip);
+    if (!device) {
+        showAlert('Device not found', 'error');
+        return;
+    }
+    
+    // Execute configuration for single device
+    await executeConfiguration([device]);
+}
+
+async function rebootSingleDevice(ip) {
+    const device = window.configDevices.find(d => d.ip === ip);
+    if (!device) {
+        showAlert('Device not found', 'error');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to reboot device ${ip}?`)) {
+        return;
+    }
+    
+    // Execute reboot for single device
+    await rebootDevices([device]);
+}
+
+function configureAllDevicesFromModal() {
+    // Close configuration modal
+    document.getElementById('configurationModal').style.display = 'none';
+    
+    // Execute configuration for all devices
+    executeConfiguration(window.configDevices || []);
+}
+
+function closeConfigurationModal() {
+    document.getElementById('configurationModal').style.display = 'none';
+}
+
 function closeAllModals() {
-    const modals = ['progressModal', 'resultsModal'];
+    const modals = ['progressModal', 'resultsModal', 'configurationModal'];
     modals.forEach(modalId => {
         const modal = document.getElementById(modalId);
-        if (modal.style.display === 'block') {
+        if (modal && modal.style.display === 'block') {
             modal.style.display = 'none';
         }
     });

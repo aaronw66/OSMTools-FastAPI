@@ -741,3 +741,120 @@ body {
         opacity: 1;
     }
 }
+/* Configuration Modal Styles */
+.config-modal-content {
+    max-width: 1200px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.config-info {
+    background: linear-gradient(135deg, #1e2330, #252b3d);
+    border-left: 4px solid #5b7cff;
+    padding: 15px 20px;
+    margin: 20px 0;
+    border-radius: 8px;
+}
+
+.config-info p {
+    margin: 8px 0;
+    color: #e8eaed;
+    font-size: 14px;
+}
+
+.config-info strong {
+    color: #9aa0b4;
+}
+
+.config-device-table-container {
+    overflow-x: auto;
+    margin-top: 20px;
+    border-radius: 8px;
+    border: 1px solid #2d3548;
+}
+
+.config-device-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #1e2330;
+}
+
+.config-device-table thead {
+    background: linear-gradient(135deg, #252b3d, #2d3548);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.config-device-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #9aa0b4;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #2d3548;
+}
+
+.config-device-table td {
+    padding: 12px;
+    border-bottom: 1px solid #2d3548;
+    color: #e8eaed;
+    font-size: 14px;
+}
+
+.config-device-table tbody tr:hover {
+    background: rgba(91, 124, 255, 0.1);
+}
+
+.btn-configure, .btn-reboot {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    margin-right: 8px;
+    transition: all 0.3s ease;
+}
+
+.btn-configure {
+    background: #5b7cff;
+    color: white;
+}
+
+.btn-configure:hover {
+    background: #4a6bef;
+    transform: translateY(-1px);
+}
+
+.btn-reboot {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-reboot:hover {
+    background: #c82333;
+    transform: translateY(-1px);
+}
+
+.status-badge.online {
+    background: #28a745;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-badge.offline {
+    background: #dc3545;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
