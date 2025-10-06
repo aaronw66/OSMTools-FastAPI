@@ -4,6 +4,55 @@ let uploadedDevices = [];
 let currentOperation = null;
 let operationResults = [];
 
+// Create a simple alert function that works for this page
+function showAlert(message, type = 'info') {
+    console.log(`[${type.toUpperCase()}] ${message}`);
+    
+    // Create alert element
+    const alertDiv = document.createElement('div');
+    alertDiv.style.cssText = `
+        position: fixed;
+        top: 90px;
+        right: 20px;
+        padding: 15px 20px;
+        background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#17a2b8'};
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 10000;
+        max-width: 400px;
+        animation: slideIn 0.3s ease;
+        font-size: 14px;
+        font-weight: 500;
+    `;
+    alertDiv.textContent = message;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        alertDiv.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => alertDiv.remove(), 300);
+    }, 5000);
+}
+
+// Add animation styles
+if (!document.getElementById('alert-animations')) {
+    const style = document.createElement('style');
+    style.id = 'alert-animations';
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(400px); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     loadFirmwareVersions();
@@ -82,7 +131,7 @@ async function loadFirmwareVersions() {
         }
     } catch (error) {
         console.error('Error loading firmware versions:', error);
-        CommonUtils.showAlert('Failed to load firmware versions', 'error');
+        showAlert('Failed to load firmware versions', 'error');
     }
 }
 
@@ -113,11 +162,11 @@ function parseCSVFile(file) {
         }
         
         uploadedDevices = devices;
-        CommonUtils.showAlert(`Loaded ${devices.length} devices from CSV`, 'success');
+        showAlert(`Loaded ${devices.length} devices from CSV`, 'success');
     };
     
     reader.onerror = function() {
-        CommonUtils.showAlert('Error reading CSV file', 'error');
+        showAlert('Error reading CSV file', 'error');
     };
     
     reader.readAsText(file);
@@ -173,12 +222,12 @@ async function configureDevices() {
                 showResultsModal('Device Configuration Results', data.results);
             }, 100);
         } else {
-            CommonUtils.showAlert('Configuration failed: ' + data.message, 'error');
+            showAlert('Configuration failed: ' + data.message, 'error');
         }
     } catch (error) {
         console.error('Configuration error:', error);
         hideProgressModal();
-        CommonUtils.showAlert('Configuration error: ' + error.message, 'error');
+        showAlert('Configuration error: ' + error.message, 'error');
     }
 }
 
@@ -212,18 +261,18 @@ async function updateFirmware() {
                 showResultsModal('Firmware Update Results', data.results);
             }, 100);
         } else {
-            CommonUtils.showAlert('Firmware update failed: ' + data.message, 'error');
+            showAlert('Firmware update failed: ' + data.message, 'error');
         }
     } catch (error) {
         console.error('Firmware update error:', error);
         hideProgressModal();
-        CommonUtils.showAlert('Firmware update error: ' + error.message, 'error');
+        showAlert('Firmware update error: ' + error.message, 'error');
     }
 }
 
 async function checkStatus() {
     if (uploadedDevices.length === 0) {
-        CommonUtils.showAlert('Please upload a CSV file with device information first', 'error');
+        showAlert('Please upload a CSV file with device information first', 'error');
         return;
     }
     
@@ -243,28 +292,32 @@ async function checkStatus() {
         
         const data = await response.json();
         
+        console.log('Check status response:', data);
+        
         // Always hide progress modal before showing results or errors
         hideProgressModal();
         
         if (data.status === 'success') {
             operationResults = data.results;
+            console.log('Showing results modal with', data.results.length, 'results');
             // Add small delay to ensure modal closes before showing results
             setTimeout(() => {
                 showResultsModal('Device Status Check Results', data.results);
             }, 100);
         } else {
-            CommonUtils.showAlert('Status check failed: ' + data.message, 'error');
+            console.error('Status check failed:', data.message);
+            alert('Status check failed: ' + data.message);
         }
     } catch (error) {
         console.error('Status check error:', error);
         hideProgressModal();
-        CommonUtils.showAlert('Status check error: ' + error.message, 'error');
+        showAlert('Status check error: ' + error.message, 'error');
     }
 }
 
 async function rebootDevices() {
     if (uploadedDevices.length === 0) {
-        CommonUtils.showAlert('Please upload a CSV file with device information first', 'error');
+        showAlert('Please upload a CSV file with device information first', 'error');
         return;
     }
     
@@ -297,12 +350,12 @@ async function rebootDevices() {
                 showResultsModal('Device Reboot Results', data.results);
             }, 100);
         } else {
-            CommonUtils.showAlert('Reboot failed: ' + data.message, 'error');
+            showAlert('Reboot failed: ' + data.message, 'error');
         }
     } catch (error) {
         console.error('Reboot error:', error);
         hideProgressModal();
-        CommonUtils.showAlert('Reboot error: ' + error.message, 'error');
+        showAlert('Reboot error: ' + error.message, 'error');
     }
 }
 
@@ -311,13 +364,13 @@ async function rebootDevices() {
 // =====================
 function validateOperation() {
     if (uploadedDevices.length === 0) {
-        CommonUtils.showAlert('Please upload a CSV file with device information first', 'error');
+        showAlert('Please upload a CSV file with device information first', 'error');
         return false;
     }
     
     const firmwareVersion = document.getElementById('firmwareVersion').value;
     if (!firmwareVersion) {
-        CommonUtils.showAlert('Please select a firmware version', 'error');
+        showAlert('Please select a firmware version', 'error');
         return false;
     }
     
@@ -370,9 +423,18 @@ function hideProgressModal() {
 }
 
 function showResultsModal(title, results) {
+    console.log('showResultsModal called with title:', title, 'results:', results);
+    
     const modal = document.getElementById('resultsModal');
     const resultsTitle = document.getElementById('resultsTitle');
     const resultsContent = document.getElementById('resultsContent');
+    
+    console.log('Modal elements:', { modal, resultsTitle, resultsContent });
+    
+    if (!modal || !resultsTitle || !resultsContent) {
+        console.error('Modal elements not found!');
+        return;
+    }
     
     resultsTitle.textContent = title;
     
@@ -397,7 +459,9 @@ function showResultsModal(title, results) {
         resultsContent.innerHTML = html;
     }
     
+    console.log('Setting modal display to block');
     modal.style.display = 'block';
+    console.log('Modal display style:', modal.style.display);
 }
 
 function closeResultsModal() {
@@ -419,7 +483,7 @@ function closeAllModals() {
 // =====================
 function downloadResults() {
     if (!operationResults || operationResults.length === 0) {
-        CommonUtils.showAlert('No results to download', 'error');
+        showAlert('No results to download', 'error');
         return;
     }
     
@@ -446,7 +510,7 @@ function downloadResults() {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
     
-    CommonUtils.showAlert('Results downloaded successfully!', 'success');
+    showAlert('Results downloaded successfully!', 'success');
 }
 
 // Export functions for global access
