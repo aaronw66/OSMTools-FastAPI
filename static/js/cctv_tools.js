@@ -201,8 +201,11 @@ async function configureDevices() {
     
     currentOperation = 'configure';
     
+    // Show progress modal while checking device status
+    showProgressModal('Preparing Configuration', 'Checking device status...');
+    
     try {
-        // Step 1: Prepare configuration modal (instant, no device checking)
+        // Step 1: Check device status to get current Room/User/BuildDate
         const response = await fetch('/cctv-tools/prepare-configuration', {
             method: 'POST',
             headers: {
@@ -215,13 +218,17 @@ async function configureDevices() {
         
         const data = await response.json();
         
+        // Hide progress modal
+        hideProgressModal();
+        
         if (data.success) {
-            // Show configuration modal with device list
+            // Show configuration modal with device list (showing current values from devices)
             showConfigurationModal(data.results);
         } else {
             showAlert('Failed to prepare configuration: ' + (data.message || 'Unknown error'), 'error');
         }
     } catch (error) {
+        hideProgressModal();
         console.error('Configuration preparation error:', error);
         showAlert('Failed to prepare configuration: ' + error.message, 'error');
     }
@@ -229,6 +236,14 @@ async function configureDevices() {
 
 async function executeConfiguration(devices) {
     // Step 2: Execute actual configuration after user confirms
+    // Use CSV values (csv_room, csv_user) for configuration, not current device values
+    const devicesToConfig = devices.map(device => ({
+        ip: device.ip,
+        room: device.csv_room || device.room,  // Use CSV value for configuration
+        user: device.csv_user || device.user,  // Use CSV value for configuration
+        userSig: device.user_sig
+    }));
+    
     showProgressModal('Configuring Devices', 'Starting TRTC configuration...');
     
     try {
@@ -238,7 +253,7 @@ async function executeConfiguration(devices) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                devices: devices
+                devices: devicesToConfig
             })
         });
         

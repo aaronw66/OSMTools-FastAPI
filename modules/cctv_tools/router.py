@@ -43,7 +43,7 @@ async def get_firmware_versions():
 
 @router.post("/prepare-configuration")
 async def prepare_configuration(request: Request):
-    """Prepare configuration modal - show device list instantly without checking status"""
+    """Prepare configuration modal - check device status to show current Room/User/BuildDate"""
     try:
         data = await request.json()
         devices = data.get('devices', [])
@@ -51,33 +51,40 @@ async def prepare_configuration(request: Request):
         if not devices:
             return JSONResponse(content={"status": "error", "message": "No devices provided"})
         
-        # Prepare device list for configuration modal (instant, no status check)
-        results = []
-        for device in devices:
-            ip = device.get('ip', '')
-            if not ip:
-                continue
-            
-            # Extract device name from IP (last octet)
-            device_name = ip.split('.')[-1] if '.' in ip else ip
-            
-            results.append({
-                'ip': ip,
-                'device_name': device_name,
-                'room': device.get('room', ''),
-                'user': device.get('user', ''),
-                'user_sig': device.get('userSig', ''),
-                'build_date': '',  # Will be populated during actual configuration
-                'status': 'ONLINE',  # Assume online for modal display
-            })
+        # Check device status to get current Room, User, BuildDate (like check-status does)
+        status_result = service.check_device_status(devices)
         
-        return JSONResponse(content={
-            'success': True,
-            'results': results,
-            'operation_type': 'Configuration',
-            'total_devices': len(results),
-            'message': f'Ready to configure {len(results)} devices'
-        })
+        if status_result.get('status') == 'success':
+            results = []
+            for device_status in status_result.get('results', []):
+                # Get CSV values for comparison
+                csv_device = next((d for d in devices if d['ip'] == device_status['ip']), {})
+                
+                results.append({
+                    'ip': device_status['ip'],
+                    'device_name': device_status.get('device_name', 'Unknown'),
+                    'room': device_status.get('room', ''),  # Current TRTC Room from device
+                    'user': device_status.get('user', ''),  # Current TRTC User from device
+                    'user_sig': csv_device.get('userSig', ''),  # UserSig from CSV (for configuration)
+                    'build_date': device_status.get('build_date', ''),
+                    'status': 'ONLINE' if device_status.get('status') == 'success' else 'OFFLINE',
+                    'csv_room': csv_device.get('room', ''),  # Store CSV values for configuration
+                    'csv_user': csv_device.get('user', ''),
+                })
+            
+            return JSONResponse(content={
+                'success': True,
+                'results': results,
+                'operation_type': 'Configuration',
+                'total_devices': len(results),
+                'message': f'Ready to configure {len(results)} devices'
+            })
+        else:
+            return JSONResponse(content={
+                "status": "error", 
+                "message": status_result.get('message', 'Failed to check device status')
+            }, status_code=500)
+            
     except Exception as e:
         return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
 
