@@ -41,6 +41,41 @@ async def get_servers():
     except Exception as e:
         return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
 
+@router.get("/get-all-server-versions")
+async def get_all_server_versions():
+    """Get current versions for all servers - matches Flask endpoint"""
+    try:
+        servers = service_manager.get_image_recon_servers()
+        version_results = []
+        
+        for server in servers:
+            ip = server['ip']
+            hostname = server['hostname']
+            
+            try:
+                version = service_manager._get_server_version(ip)
+                version_results.append({
+                    'ip': ip,
+                    'hostname': hostname,
+                    'version': version,
+                    'success': version != "Unknown"
+                })
+            except Exception as e:
+                version_results.append({
+                    'ip': ip,
+                    'hostname': hostname,
+                    'version': 'Error',
+                    'success': False,
+                    'error': str(e)
+                })
+        
+        return JSONResponse(content={
+            "status": "success",
+            "results": version_results
+        })
+    except Exception as e:
+        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+
 @router.post("/restart-service")
 async def restart_service(request: RestartRequest):
     """Restart service on selected servers"""

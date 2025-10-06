@@ -190,40 +190,29 @@ function displayServers() {
 }
 
 async function loadServerVersions() {
-    // Load versions for each server
-    for (const server of availableServers) {
-        try {
-            const response = await fetch('/image-recon-service/check-status', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    servers: [{
-                        ip: server.ip,
-                        hostname: server.hostname,
-                        label: server.label
-                    }]
-                })
-            });
-            
-            const data = await response.json();
-            const versionElement = document.getElementById(`version-${server.ip.replace(/\./g, '-')}`);
-            
-            if (versionElement) {
-                if (data.status === 'success' && data.results && data.results[0]) {
-                    versionElement.textContent = data.results[0].version || 'Unknown';
-                } else {
-                    versionElement.textContent = server.status === 'development' ? 'Dev v1.0.0' : 'Unknown';
+    // Load all versions at once - matches Flask version exactly
+    try {
+        const response = await fetch('/image-recon-service/get-all-server-versions');
+        const data = await response.json();
+        
+        if (data.status === 'success' && data.results) {
+            data.results.forEach(result => {
+                const versionElement = document.getElementById(`version-${result.ip.replace(/\./g, '-')}`);
+                if (versionElement) {
+                    if (result.success && result.version !== 'Unknown') {
+                        versionElement.textContent = result.version;
+                        versionElement.style.background = 'rgba(76, 175, 80, 0.3)';
+                        versionElement.style.borderColor = 'rgba(76, 175, 80, 0.6)';
+                    } else {
+                        versionElement.textContent = result.version || 'N/A';
+                        versionElement.style.background = 'rgba(244, 67, 54, 0.3)';
+                        versionElement.style.borderColor = 'rgba(244, 67, 54, 0.6)';
+                    }
                 }
-            }
-        } catch (error) {
-            console.error(`Error loading version for ${server.ip}:`, error);
-            const versionElement = document.getElementById(`version-${server.ip.replace(/\./g, '-')}`);
-            if (versionElement) {
-                versionElement.textContent = server.status === 'development' ? 'Dev v1.0.0' : 'Error';
-            }
+            });
         }
+    } catch (error) {
+        console.error('Error loading server versions:', error);
     }
 }
 
