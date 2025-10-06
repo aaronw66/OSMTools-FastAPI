@@ -131,13 +131,14 @@
 
 /* Content adjustments for fixed search */
 .main-container {
-    padding-top: 130px; /* Account for navbar (70px) + search bar (~60px) */
+    padding-top: 130px; /* Navbar (70px) + Search bar (60px) - no gap */
     padding-bottom: 40px;
 }
 
 .content-header {
     text-align: center;
-    margin-bottom: 40px;
+    margin-top: 0;
+    margin-bottom: 20px;
 }
 
 .content-title {

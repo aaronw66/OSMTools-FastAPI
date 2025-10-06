@@ -193,7 +193,7 @@ async function loadServerVersions() {
     // Load versions for each server
     for (const server of availableServers) {
         try {
-            const response = await fetch('/image-recon-service/check-server-status', {
+            const response = await fetch('/image-recon-service/check-status', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
