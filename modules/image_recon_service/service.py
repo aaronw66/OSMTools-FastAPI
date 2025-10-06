@@ -10,6 +10,7 @@ from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from config import settings
+from .logger import logger
 
 try:
     import paramiko
@@ -455,11 +456,13 @@ class ImageReconServiceManager:
     def _get_server_version(self, server_ip: str) -> str:
         """Get version from server using journalctl - matches Flask version exactly"""
         if not SSH_AVAILABLE:
+            logger.warning(f"[{server_ip}] SSH not available")
             return "Unknown"
         
         try:
             # Confirm that the private key exists
             if not os.path.exists(self.ssh_key_path):
+                logger.error(f"[{server_ip}] Key not found: {self.ssh_key_path}")
                 return "Unknown"
             
             # Create an SSH client
@@ -471,6 +474,7 @@ class ImageReconServiceManager:
             
             # Attempt SSH connection with a timeout
             ssh.connect(server_ip, username=self.ssh_username, pkey=private_key, timeout=10)
+            logger.debug(f"[{server_ip}] SSH connected successfully")
             
             # Run journalctl command to get version (exactly like Flask)
             version_cmd = 'journalctl --since "10 minutes ago" | grep -o "version\\[[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+-[0-9]\\+]" | tail -1'
@@ -480,16 +484,22 @@ class ImageReconServiceManager:
             
             ssh.close()
             
+            logger.info(f"[{server_ip}] Version output: '{version_output}'")
+            
             # Extract version from format: version[3.1.2335-1]
             if version_output and version_output.startswith('version['):
                 import re
                 version_match = re.search(r'version\[([0-9]+\.[0-9]+\.[0-9]+-[0-9]+)\]', version_output)
                 if version_match:
-                    return version_match.group(1)
+                    version = version_match.group(1)
+                    logger.info(f"[{server_ip}] ✅ Found version: {version}")
+                    return version
             
+            logger.warning(f"[{server_ip}] ⚠️ No version found in output")
             return "Unknown"
             
         except Exception as e:
+            logger.error(f"[{server_ip}] ❌ Error getting version: {e}")
             return "Unknown"
     
     def _get_logs_from_server(self, server_ip: str, lines: int = 100) -> str:
