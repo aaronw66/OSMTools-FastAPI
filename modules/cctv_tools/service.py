@@ -375,9 +375,16 @@ class CCTVToolsService:
                     data = response.json().get('Data', {})
                     result['enable'] = data.get('Enable', 0) == 1
                     result['app_id'] = str(data.get('AppId', '20008185'))
-                    result['room'] = data.get('Room', room)
-                    result['user'] = data.get('User', username)
-                    result['userSig'] = data.get('UserSig', password)
+                    # Only update if TRTC has values, otherwise keep CSV values
+                    trtc_room = data.get('Room', '')
+                    trtc_user = data.get('User', '')
+                    trtc_sig = data.get('UserSig', '')
+                    if trtc_room:
+                        result['room'] = trtc_room
+                    if trtc_user:
+                        result['user'] = trtc_user
+                    if trtc_sig:
+                        result['userSig'] = trtc_sig
             except Exception as e:
                 self.logger.warning(f"[{ip}] Could not get TRTC config: {e}")
             

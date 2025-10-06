@@ -1,8 +1,8 @@
-/* CCTV Tools Specific Styles - Matching the design shown */
+/* CCTV Tools Specific Styles - Dark Theme */
 
 /* Override body background for CCTV Tools */
 body {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+    background: linear-gradient(135deg, #1a1d29 0%, #0f1117 100%) !important;
 }
 
 /* Main Container */
@@ -17,10 +17,10 @@ body {
 
 /* CCTV Card - Main centered card */
 .cctv-card {
-    background: linear-gradient(135deg, #f8f9fa, #ffffff);
+    background: linear-gradient(135deg, #1e2330, #252b3d);
     border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e9ecef;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    border: 1px solid #2d3548;
     width: 100%;
     max-width: 500px;
     overflow: hidden;
@@ -30,19 +30,19 @@ body {
     text-align: center;
     padding: 30px 25px 15px;
     background: transparent;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid #2d3548;
 }
 
 .card-title {
     font-size: 1.5rem;
     font-weight: 600;
-    color: #495057;
+    color: #e8eaed;
     margin-bottom: 8px;
 }
 
 .card-subtitle {
     font-size: 0.9rem;
-    color: #6c757d;
+    color: #9aa0b4;
     line-height: 1.4;
 }
 
@@ -65,14 +65,14 @@ body {
 .form-label {
     font-size: 0.9rem;
     font-weight: 600;
-    color: #495057;
+    color: #e8eaed;
     display: flex;
     align-items: center;
     gap: 5px;
 }
 
 .required {
-    color: #dc3545;
+    color: #ff6b6b;
 }
 
 /* File Upload */
@@ -84,7 +84,7 @@ body {
 }
 
 .file-upload-btn {
-    background: #007bff;
+    background: #4a90e2;
     color: white;
     border: none;
     padding: 8px 16px;
@@ -96,18 +96,18 @@ body {
 }
 
 .file-upload-btn:hover {
-    background: #0056b3;
+    background: #357abd;
 }
 
 .file-status {
-    color: #6c757d;
+    color: #9aa0b4;
     font-size: 13px;
     flex: 1;
     min-width: 100px;
 }
 
 .download-sample-btn {
-    background: #28a745;
+    background: #51cf66;
     color: white;
     border: none;
     padding: 8px 12px;
@@ -122,27 +122,27 @@ body {
 }
 
 .download-sample-btn:hover {
-    background: #218838;
+    background: #40c057;
 }
 
 /* CSV Info */
 .csv-info {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
+    background: #2d3548;
+    border: 1px solid #3d4558;
     border-radius: 6px;
     padding: 12px;
     margin-top: 8px;
 }
 
 .csv-info p {
-    color: #6c757d;
+    color: #9aa0b4;
     margin-bottom: 8px;
     font-size: 13px;
 }
 
 .csv-format {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
+    background: #1e2330;
+    border: 1px solid #3d4558;
     border-radius: 4px;
     padding: 8px;
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
@@ -158,11 +158,11 @@ body {
 
 /* Form Select */
 .form-select {
-    background: white;
-    border: 1px solid #ced4da;
+    background: #1e2330;
+    border: 1px solid #3d4558;
     border-radius: 4px;
     padding: 8px 12px;
-    color: #495057;
+    color: #e8eaed;
     font-size: 13px;
     outline: none;
     transition: all 0.2s ease;
@@ -171,18 +171,18 @@ body {
 }
 
 .form-select:focus {
-    border-color: #007bff;
-    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.25);
 }
 
 .form-select option {
-    background: white;
-    color: #495057;
+    background: #1e2330;
+    color: #e8eaed;
     padding: 8px;
 }
 
 .form-help {
-    color: #6c757d;
+    color: #9aa0b4;
     font-size: 12px;
     margin-top: 4px;
 }
@@ -718,5 +718,15 @@ body {
     
     .btn-text {
         font-size: 13px;
+    }
+}
+
+/* Pulse animation for indeterminate progress */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 0.6;
+    }
+    50% {
+        opacity: 1;
     }
 }

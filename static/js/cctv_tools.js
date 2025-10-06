@@ -276,6 +276,9 @@ async function checkStatus() {
         return;
     }
     
+    console.log(`🚀 Starting status check for ${uploadedDevices.length} devices`);
+    console.log('Devices to check:', uploadedDevices);
+    
     currentOperation = 'status';
     showProgressModal('Checking Status', 'Checking device status...');
     
@@ -292,7 +295,8 @@ async function checkStatus() {
         
         const data = await response.json();
         
-        console.log('Check status response:', data);
+        console.log('✅ Check status response:', data);
+        console.log(`📊 Results: ${data.results?.length || 0} devices processed`);
         
         // Always hide progress modal before showing results or errors
         hideProgressModal();
@@ -309,7 +313,7 @@ async function checkStatus() {
             alert('Status check failed: ' + data.message);
         }
     } catch (error) {
-        console.error('Status check error:', error);
+        console.error('❌ Status check error:', error);
         hideProgressModal();
         showAlert('Status check error: ' + error.message, 'error');
     }
@@ -389,10 +393,12 @@ function showProgressModal(title, message) {
     
     modal.querySelector('h3').textContent = title;
     progressText.textContent = message;
-    progressDetails.textContent = 'Preparing operation...';
-    progressFill.style.width = '10%';
+    progressDetails.textContent = 'Starting operation...';
+    progressFill.style.width = '0%';
     
-    // Initialize stats
+    const total = uploadedDevices.length;
+    
+    // Initialize stats with actual device count
     if (progressStats) {
         progressStats.innerHTML = `
             <div class="stat-item">
@@ -408,7 +414,7 @@ function showProgressModal(title, message) {
                 <div class="stat-label">Offline</div>
             </div>
             <div class="stat-item stat-remaining">
-                <div class="stat-number" id="statRemaining">${uploadedDevices.length}</div>
+                <div class="stat-number" id="statRemaining">${total}</div>
                 <div class="stat-label">Remaining</div>
             </div>
         `;
@@ -416,45 +422,27 @@ function showProgressModal(title, message) {
     
     modal.style.display = 'block';
     
-    // Simulate progress with stats
-    let progress = 0;
-    let completed = 0;
-    const total = uploadedDevices.length;
-    
-    const progressInterval = setInterval(() => {
-        if (completed < total) {
-            // Simulate processing devices
-            const increment = Math.floor(Math.random() * 5) + 1;
-            completed = Math.min(completed + increment, total);
-            progress = (completed / total) * 100;
-            
-            progressFill.style.width = progress + '%';
-            progressText.textContent = `${completed} of ${total} devices completed (${Math.round(progress)}%)`;
-            progressDetails.textContent = `Processing chunk ${Math.ceil(completed / 10)} of ${Math.ceil(total / 10)} • Estimated time remaining: ${Math.ceil((total - completed) / 10)} seconds`;
-            
-            // Update stats
-            if (progressStats) {
-                document.getElementById('statCompleted').textContent = completed;
-                document.getElementById('statRemaining').textContent = total - completed;
-                // Simulate online/offline (roughly 85% success rate)
-                const online = Math.floor(completed * 0.85);
-                const offline = completed - online;
-                document.getElementById('statOnline').textContent = online;
-                document.getElementById('statOffline').textContent = offline;
-            }
-        }
-    }, 300);
-    
-    // Store interval for cleanup
-    modal.progressInterval = progressInterval;
+    // Show indeterminate progress (no fake simulation)
+    progressFill.style.width = '100%';
+    progressFill.style.animation = 'pulse 1.5s ease-in-out infinite';
+    progressText.textContent = `Processing ${total} devices...`;
+    progressDetails.textContent = 'Please wait while we check each device';
 }
 
 function hideProgressModal() {
     const modal = document.getElementById('progressModal');
+    const progressFill = document.getElementById('progressFill');
+    
     if (modal && modal.progressInterval) {
         clearInterval(modal.progressInterval);
         modal.progressInterval = null;
     }
+    
+    // Remove animation
+    if (progressFill) {
+        progressFill.style.animation = 'none';
+    }
+    
     if (modal) {
         modal.style.display = 'none';
     }
