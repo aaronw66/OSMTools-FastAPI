@@ -150,9 +150,11 @@ function parseCSVFile(file) {
             const line = lines[i].trim();
             if (line) {
                 const columns = line.split(',');
-                if (columns.length >= 4) {
+                // Only add if we have a valid IP address (not empty)
+                const ip = columns[0] ? columns[0].trim() : '';
+                if (ip && columns.length >= 4) {
                     devices.push({
-                        ip: columns[0].trim(),
+                        ip: ip,
                         room: columns[1].trim(),
                         user: columns[2].trim(),
                         userSig: columns[3].trim()
@@ -162,6 +164,8 @@ function parseCSVFile(file) {
         }
         
         uploadedDevices = devices;
+        console.log(`✅ CSV parsed: ${devices.length} devices loaded`);
+        console.log('Devices:', devices);
         showAlert(`Loaded ${devices.length} devices from CSV`, 'success');
     };
     
