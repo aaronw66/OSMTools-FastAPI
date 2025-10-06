@@ -3,8 +3,10 @@
 let availableServers = [];
 let selectedServers = [];
 let currentServerIP = null;
+let currentServerHostname = null;
 let emailConfig = {};
 let searchTimeout = null;
+let logsRefreshInterval = null;
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -239,6 +241,7 @@ async function refreshServers() {
 // =====================
 async function showLogs(serverIP, hostname) {
     currentServerIP = serverIP;
+    currentServerHostname = hostname;
     
     const modal = document.getElementById('logsModal');
     const serverTitle = document.getElementById('serverTitle');
@@ -253,6 +256,16 @@ async function showLogs(serverIP, hostname) {
     `;
     
     modal.style.display = 'block';
+    
+    // Clear any existing refresh interval
+    if (logsRefreshInterval) {
+        clearInterval(logsRefreshInterval);
+    }
+    
+    // Start auto-refresh every 2.5 seconds (matches Flask version)
+    logsRefreshInterval = setInterval(() => {
+        loadLogs(serverIP);
+    }, 2500);
     
     // Hide search results
     document.getElementById('searchResults').style.display = 'none';
@@ -307,7 +320,7 @@ async function refreshLogs() {
 }
 
 async function restartService() {
-    if (!currentServerIP) return;
+    if (!currentServerIP || !currentServerHostname) return;
     
     const confirmed = confirm('Are you sure you want to restart the service on this server?');
     if (!confirmed) return;
@@ -319,8 +332,12 @@ async function restartService() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                servers: [{ ip: currentServerIP }],
-                service_name: 'image-recon'
+                servers: [{ 
+                    ip: currentServerIP,
+                    hostname: currentServerHostname,
+                    label: currentServerHostname.split('-')[0]
+                }],
+                service_name: 'osm'
             })
         });
         
@@ -579,8 +596,15 @@ function displayUpdateResults(results) {
 // 🎛️ Modal Management
 // =====================
 function closeModal() {
+    // Stop auto-refresh
+    if (logsRefreshInterval) {
+        clearInterval(logsRefreshInterval);
+        logsRefreshInterval = null;
+    }
+    
     document.getElementById('logsModal').style.display = 'none';
     currentServerIP = null;
+    currentServerHostname = null;
 }
 
 function closeMessageModal() {

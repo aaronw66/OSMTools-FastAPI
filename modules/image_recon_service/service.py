@@ -24,6 +24,60 @@ try:
 except ImportError:
     REQUESTS_AVAILABLE = False
 
+def send_lark_notification(server_ip: str, hostname: str, status: str, message: str, error: str = None):
+    """Send restart notification to Lark webhook - matches Flask version exactly"""
+    if not REQUESTS_AVAILABLE:
+        return
+    
+    try:
+        headers = {"Content-Type": "application/json; charset=utf-8"}
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Determine status emoji and text
+        if status == "success":
+            status_emoji = "✅"
+            status_text = "SUCCESS"
+        elif status == "warning":
+            status_emoji = "⚠️"
+            status_text = "WARNING"
+        else:
+            status_emoji = "❌"
+            status_text = "FAILED"
+        
+        # Create message (matches Flask format exactly)
+        message_lines = [
+            f"🔄 **OSM Service Restart Notification**",
+            f"📅 **Time:** {timestamp}",
+            f"🖥️ **Server:** {hostname} ({server_ip})",
+            f"{status_emoji} **Status:** {status_text}",
+            f"📝 **Message:** {message}"
+        ]
+        
+        if error:
+            message_lines.append(f"❌ **Error:** {error}")
+        
+        message_text = "\n".join(message_lines)
+        
+        # Prepare webhook body
+        body = {
+            "msg_type": "text",
+            "content": {
+                "text": message_text
+            }
+        }
+        
+        # Send to Lark webhook
+        logger.info(f"📤 Sending restart notification to Lark webhook...")
+        response = requests.post(settings.LARK_WEBHOOK_URL, headers=headers, json=body, timeout=10)
+        
+        if response.status_code == 200:
+            logger.info(f"✅ Restart notification sent successfully to Lark")
+        else:
+            logger.error(f"❌ Failed to send restart notification to Lark webhook: {response.status_code} - {response.text}")
+            
+    except Exception as e:
+        logger.error(f"❌ Error sending restart notification to Lark: {str(e)}")
+
 class ImageReconServiceManager:
     def __init__(self):
         # Use root user and production key for Image Recon servers
@@ -656,8 +710,8 @@ class ImageReconServiceManager:
             "timestamp": datetime.now().isoformat()
         }
     
-    def restart_service(self, servers: List[Dict], service_name: str = "image-recon") -> Dict:
-        """Restart service on multiple servers"""
+    def restart_service(self, servers: List[Dict], service_name: str = "osm") -> Dict:
+        """Restart service on multiple servers - matches Flask version"""
         if not SSH_AVAILABLE:
             return {"status": "error", "message": "SSH functionality not available"}
         
@@ -668,41 +722,98 @@ class ImageReconServiceManager:
             hostname = server.get('hostname', server_ip)
             
             try:
-                # Execute restart command
-                success, output = self.execute_ssh_command(
-                    server_ip, 
-                    f"sudo systemctl restart {service_name}"
-                )
+                logger.info(f"🔄 Attempting to restart service on {server_ip} ({hostname})")
                 
-                if success:
-                    # Verify service is running
-                    time.sleep(2)
-                    success, status_output = self.execute_ssh_command(
-                        server_ip,
-                        f"systemctl is-active {service_name}"
-                    )
-                    
+                # Connect via SSH
+                ssh = paramiko.SSHClient()
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                private_key = paramiko.RSAKey.from_private_key_file(self.ssh_key_path)
+                ssh.connect(server_ip, username=self.ssh_username, pkey=private_key, timeout=30)
+                
+                logger.info(f"✅ Connected to {server_ip}. Restarting service...")
+                
+                # Restart command: restart service, wait 10 seconds, check if active
+                # Since we're root, no sudo password needed
+                restart_command = f"systemctl restart {service_name} && sleep 10 && systemctl is-active {service_name}"
+                
+                stdin, stdout, stderr = ssh.exec_command(restart_command, timeout=180)
+                
+                # Wait for completion (up to 3 minutes)
+                start_time = time.time()
+                timeout = 180
+                
+                logger.info(f"⏳ Waiting for restart command to complete...")
+                while not stdout.channel.exit_status_ready():
+                    if time.time() - start_time > timeout:
+                        ssh.close()
+                        logger.error(f"⏰ Restart timeout after {timeout} seconds on {server_ip}")
+                        msg = f"Restart timeout after {timeout} seconds. Service may still be restarting."
+                        results.append({
+                            "hostname": hostname,
+                            "ip": server_ip,
+                            "status": "error",
+                            "message": msg
+                        })
+                        # Send timeout notification to Lark (matches Flask exactly - with "Timeout" error)
+                        send_lark_notification(server_ip, hostname, "error", msg, "Timeout")
+                        continue
+                    time.sleep(1)
+                
+                # Check exit status
+                exit_status = stdout.channel.recv_exit_status()
+                service_status = stdout.read().decode().strip()
+                
+                ssh.close()
+                
+                logger.info(f"📊 Service status after restart: {service_status}")
+                
+                if exit_status == 0 and service_status == "active":
+                    logger.info(f"🎉 Service restarted successfully and is ACTIVE on {server_ip}")
+                    msg = "Service restarted successfully and is now active."
                     results.append({
                         "hostname": hostname,
                         "ip": server_ip,
-                        "status": "success" if success and "active" in status_output else "warning",
-                        "message": f"Service restarted, status: {status_output}" if success else "Service restarted but status unknown"
+                        "status": "success",
+                        "message": msg
                     })
+                    # Send success notification to Lark (matches Flask exactly)
+                    send_lark_notification(server_ip, hostname, "success", msg)
+                elif exit_status == 0:
+                    logger.warning(f"⚠️ Service restarted but status is '{service_status}' on {server_ip}")
+                    msg = f"Service restarted but current status is: {service_status}. Please check manually."
+                    results.append({
+                        "hostname": hostname,
+                        "ip": server_ip,
+                        "status": "warning",
+                        "message": msg
+                    })
+                    # Send warning notification to Lark (matches Flask exactly)
+                    send_lark_notification(server_ip, hostname, "warning", msg)
                 else:
+                    error_msg = stderr.read().decode().strip()
+                    msg = f"Failed to restart the service. {error_msg}" if error_msg else "Failed to restart the service."
+                    logger.error(f"💥 Error restarting service on {server_ip}: {error_msg}")
                     results.append({
                         "hostname": hostname,
                         "ip": server_ip,
                         "status": "error",
-                        "message": f"Failed to restart service: {output}"
+                        "message": msg
                     })
+                    # Send error notification to Lark (matches Flask exactly - with error detail)
+                    send_lark_notification(server_ip, hostname, "error", msg, error_msg if error_msg else None)
             
             except Exception as e:
+                error_str = str(e)
+                msg = f"Unexpected error during restart: {error_str}"
+                logger.error(f"Error: {error_str}")  # Match Flask log format
                 results.append({
                     "hostname": hostname,
                     "ip": server_ip,
                     "status": "error",
-                    "message": f"Error: {str(e)}"
+                    "message": error_str
                 })
+                # Send error notification to Lark (matches Flask exactly)
+                send_lark_notification(server_ip, hostname, "error", msg, error_str)
         
         return {
             "status": "success",
@@ -730,6 +841,7 @@ class ImageReconServiceManager:
                 })
             
             except Exception as e:
+                logger.error(f"❌ Error checking status on {server_ip}: {str(e)}")
                 results.append({
                     "hostname": hostname,
                     "ip": server_ip,

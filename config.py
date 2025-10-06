@@ -21,6 +21,9 @@ class Settings:
     HOST: str = os.getenv("HOST", "0.0.0.0")
     PORT: int = int(os.getenv("PORT", "6969"))
     
+    # Lark Webhook Configuration
+    LARK_WEBHOOK_URL: str = os.getenv("LARK_WEBHOOK_URL", "https://open.larksuite.com/open-apis/bot/v2/hook/ccd2a7c6-9344-473a-9262-68b9c787046b")
+    
     # Ensure directories exist
     def __post_init__(self):
         os.makedirs(self.UPLOAD_DIR, exist_ok=True)
