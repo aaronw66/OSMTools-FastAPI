@@ -20,7 +20,7 @@ function showAlert(message, type = 'info') {
 
 function showLoading(button) {
     const originalText = button.textContent;
-    button.innerHTML = '<span class="loading"></span>Loading...';
+    button.innerHTML = '<span class="loading"></span>Thinking...';
     button.disabled = true;
     
     return () => {

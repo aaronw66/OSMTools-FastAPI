@@ -170,7 +170,23 @@ async def get_email_settings():
         config = service_manager.load_email_config()
         
         # Calculate next run time if schedule is enabled
-        # TODO: Implement schedule calculation
+        if config.get("schedule", {}).get("enabled", False):
+            from datetime import datetime, timedelta
+            import pytz
+            
+            # Malaysia timezone
+            malaysia_tz = pytz.timezone('Asia/Kuala_Lumpur')
+            now = datetime.now(malaysia_tz)
+            
+            # Find next Monday
+            days_ahead = 0 - now.weekday()  # Monday is 0
+            if days_ahead <= 0:  # Target day already happened this week
+                days_ahead += 7
+            
+            next_monday = now + timedelta(days=days_ahead)
+            next_monday_930 = next_monday.replace(hour=9, minute=30, second=0, microsecond=0)
+            
+            config["schedule"]["next_run"] = next_monday_930.strftime("%Y-%m-%d %H:%M:%S")
         
         return JSONResponse(content={
             "status": "success",
@@ -242,6 +258,43 @@ async def remove_email_recipient(request: Request):
                 "status": "error",
                 "message": message
             }, status_code=400)
+            
+    except Exception as e:
+        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+
+@router.post("/toggle-schedule")
+async def toggle_schedule(request: Request):
+    """Enable or disable scheduled version check - matches Flask version"""
+    try:
+        data = await request.json()
+        enabled = data.get('enabled', False)
+        
+        success, message = service_manager.toggle_schedule(enabled)
+        
+        if success:
+            return JSONResponse(content={
+                "status": "success",
+                "message": message
+            })
+        else:
+            return JSONResponse(content={
+                "status": "error",
+                "message": message
+            }, status_code=400)
+            
+    except Exception as e:
+        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+
+@router.post("/test-scheduled-version-check")
+async def test_scheduled_version_check(request: Request):
+    """Test the scheduled version check by running it immediately - matches Flask version"""
+    try:
+        result = service_manager.test_scheduled_version_check()
+        
+        if result.get('status') == 'success':
+            return JSONResponse(content=result)
+        else:
+            return JSONResponse(content=result, status_code=500)
             
     except Exception as e:
         return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)

@@ -623,3 +623,388 @@
 }
 
 /* Shimmer animation removed - no longer needed */
+
+/* Email Schedule Modal Styles - Premium Edition */
+.email-content {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.email-section {
+    background: linear-gradient(145deg, #2a2a2a, #1f1f1f);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.email-section:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+}
+
+.schedule-toggle-section {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    border: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.schedule-toggle-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: pulse 4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+.schedule-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    position: relative;
+    z-index: 1;
+}
+
+.schedule-header h4 {
+    color: white;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.schedule-header p {
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+    flex-shrink: 0;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(145deg, #555, #444);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 34px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background: linear-gradient(145deg, #ffffff, #f0f0f0);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background: linear-gradient(145deg, #66BB6A, #4CAF50);
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.5), inset 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+}
+
+.toggle-slider:hover {
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3), 0 0 15px rgba(255,255,255,0.1);
+}
+
+.schedule-status-section {
+    background: linear-gradient(135deg, #2196F3, #1976D2);
+    border: none;
+    position: relative;
+    overflow: hidden;
+    color: white;
+}
+
+.schedule-status-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    animation: shimmerSlide 3s infinite;
+}
+
+@keyframes shimmerSlide {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+.schedule-status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    position: relative;
+    z-index: 1;
+}
+
+.schedule-status-header strong {
+    color: white;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.schedule-status-header #scheduleStatusText {
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.schedule-times {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.95);
+    position: relative;
+    z-index: 1;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.schedule-times div {
+    margin: 5px 0;
+}
+
+.schedule-times strong {
+    color: white;
+}
+
+.btn-test {
+    background: linear-gradient(145deg, #ff9800, #f57c00);
+    color: white;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-test::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.5s, height 0.5s;
+}
+
+.btn-test:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.btn-test:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 152, 0, 0.6);
+}
+
+.btn-test:active {
+    transform: translateY(0);
+}
+
+.btn-info {
+    background: linear-gradient(145deg, #17a2b8, #138496);
+    color: white;
+    box-shadow: 0 4px 15px rgba(23, 162, 184, 0.4);
+    transition: all 0.3s ease;
+}
+
+.btn-info:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(23, 162, 184, 0.6);
+}
+
+.email-section h4 {
+    margin-bottom: 15px;
+    color: #e0e0e0;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.email-section label {
+    color: #c0c0c0;
+}
+
+.recipients-list {
+    min-height: 80px;
+    padding: 15px;
+    background: linear-gradient(145deg, #1a1a1a, #0f0f0f);
+    border-radius: 10px;
+    border: 2px solid #333;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+}
+
+.recipient-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    margin: 8px 0;
+    background: linear-gradient(145deg, #2a2a2a, #222);
+    border-radius: 8px;
+    border: 1px solid #3a3a3a;
+    transition: all 0.3s ease;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.recipient-item:hover {
+    background: linear-gradient(145deg, #333, #2a2a2a);
+    transform: translateX(5px);
+    border-color: #4a4a4a;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.recipient-email {
+    color: #4CAF50;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.recipient-email::before {
+    content: '📧';
+    font-size: 16px;
+}
+
+.recipient-remove {
+    background: linear-gradient(145deg, #dc3545, #c82333);
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+}
+
+.recipient-remove:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.5);
+    background: linear-gradient(145deg, #e74c3c, #dc3545);
+}
+
+.recipient-remove:active {
+    transform: scale(0.98);
+}
+
+.form-group {
+    display: flex;
+    gap: 10px;
+}
+
+.form-group input[type="email"] {
+    flex: 1;
+    padding: 12px 15px;
+    background: linear-gradient(145deg, #1a1a1a, #0f0f0f);
+    border: 2px solid #333;
+    border-radius: 8px;
+    color: #e0e0e0;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.form-group input[type="email"]:focus {
+    outline: none;
+    border-color: #4CAF50;
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.3);
+    background: linear-gradient(145deg, #1f1f1f, #151515);
+}
+
+.btn-primary {
+    background: linear-gradient(145deg, #4CAF50, #45a049);
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    background: linear-gradient(145deg, #6c757d, #5a6268);
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4);
+}
+
+.btn-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(108, 117, 125, 0.6);
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 25px;
+}

@@ -197,7 +197,11 @@ function downloadSample() {
 // 🎛️ Device Operations
 // =====================
 async function configureDevices() {
-    if (!validateOperation()) return;
+    // Only check if devices are uploaded, firmware not required for configuration
+    if (uploadedDevices.length === 0) {
+        showAlert('Please upload a CSV file with device information first', 'error');
+        return;
+    }
     
     currentOperation = 'configure';
     
@@ -829,6 +833,90 @@ async function rebootSingleDeviceFromFirmwareModal(index) {
 function closeFirmwareUpdateModal() {
     const modal = document.getElementById('firmwareUpdateModal');
     modal.style.display = 'none';
+}
+
+async function batchUpdateAllFirmware() {
+    const devices = window.firmwareDevices || [];
+    const firmwareVersion = window.firmwareVersion;
+    
+    // Filter only READY devices
+    const readyDevices = devices.filter(d => d.status === 'READY');
+    
+    if (readyDevices.length === 0) {
+        showAlert('No devices ready for update', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Start batch update for ${readyDevices.length} devices? (10 devices at a time)`)) {
+        return;
+    }
+    
+    // Process in batches of 10
+    const BATCH_SIZE = 10;
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (let i = 0; i < readyDevices.length; i += BATCH_SIZE) {
+        const batch = readyDevices.slice(i, i + BATCH_SIZE);
+        const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(readyDevices.length / BATCH_SIZE);
+        
+        console.log(`Processing batch ${batchNumber}/${totalBatches} (${batch.length} devices)`);
+        
+        // Update all devices in this batch in parallel
+        const batchPromises = batch.map(device => {
+            device.status = 'UPDATING';
+            renderFirmwareDeviceTable();
+            
+            return fetch('/cctv-tools/update-single-firmware', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    ip: device.ip,
+                    username: device.username || 'admin',
+                    password: device.password || '123456',
+                    firmware_version: firmwareVersion
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    device.status = 'SUCCESS';
+                    successCount++;
+                } else {
+                    device.status = 'ERROR';
+                    device.error = data.error || 'Update failed';
+                    errorCount++;
+                }
+                return data;
+            })
+            .catch(error => {
+                device.status = 'ERROR';
+                device.error = error.message;
+                errorCount++;
+                return { success: false, error: error.message };
+            });
+        });
+        
+        // Wait for this batch to complete
+        await Promise.all(batchPromises);
+        
+        // Update UI after each batch
+        renderFirmwareDeviceTable();
+        
+        // Small delay between batches
+        if (i + BATCH_SIZE < readyDevices.length) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+    }
+    
+    // Show final summary
+    showAlert(
+        `Batch update completed!\nSuccess: ${successCount}\nFailed: ${errorCount}`,
+        successCount > 0 && errorCount === 0 ? 'success' : 'warning'
+    );
 }
 
 function sortConfigTable(column) {

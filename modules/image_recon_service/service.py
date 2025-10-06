@@ -262,6 +262,253 @@ class ImageReconServiceManager:
             logger.error(f"❌ Error removing email recipient: {str(e)}")
             return False, f"Error: {str(e)}"
     
+    def toggle_schedule(self, enabled: bool) -> tuple:
+        """Enable or disable scheduled version check - matches Flask version"""
+        try:
+            config = self.load_email_config()
+            config["schedule"]["enabled"] = enabled
+            
+            # Update last_run timestamp when enabling
+            if enabled:
+                config["schedule"]["last_run"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            if self.save_email_config(config):
+                status = "enabled" if enabled else "disabled"
+                logger.info(f"⏰ Scheduled version check {status}")
+                return True, f"Scheduled version check {status}"
+            else:
+                return False, "Failed to save schedule settings"
+                
+        except Exception as e:
+            logger.error(f"❌ Error toggling schedule: {str(e)}")
+            return False, f"Error: {str(e)}"
+    
+    def test_scheduled_version_check(self) -> Dict:
+        """Test the scheduled version check by running it immediately - matches Flask version"""
+        try:
+            logger.info("🕘 Running test version check...")
+            
+            # Get current recipients
+            config = self.load_email_config()
+            recipients = config.get("recipients", [])
+            
+            if not recipients:
+                return {
+                    "status": "error",
+                    "message": "No recipients configured for version check"
+                }
+            
+            logger.info(f"📧 Test version check will send to: {', '.join(recipients)}")
+            
+            # Get all servers
+            servers = self.get_image_recon_servers()
+            if not servers:
+                return {
+                    "status": "error",
+                    "message": "No servers found"
+                }
+            
+            # Check versions on all servers
+            version_results = []
+            successful_checks = 0
+            failed_checks = 0
+            
+            for server in servers:
+                result = self.check_service_status([server])
+                if result and len(result) > 0:
+                    server_result = result[0]
+                    version = server_result.get('version', 'N/A')
+                    
+                    if version and version != 'N/A' and version != 'Error':
+                        successful_checks += 1
+                        version_results.append({
+                            'success': True,
+                            'hostname': server.get('hostname', 'Unknown'),
+                            'ip': server.get('ip', 'Unknown'),
+                            'version': version,
+                            'status': 'Version found'
+                        })
+                    else:
+                        failed_checks += 1
+                        version_results.append({
+                            'success': False,
+                            'hostname': server.get('hostname', 'Unknown'),
+                            'ip': server.get('ip', 'Unknown'),
+                            'version': version,
+                            'error': 'Version not found or error',
+                            'status': 'Error'
+                        })
+            
+            # Send email report
+            target_version = "Auto-Detect"
+            email_result = self.send_version_report_email(
+                version_results, 
+                successful_checks, 
+                failed_checks, 
+                target_version
+            )
+            
+            if email_result.get('status') == 'success':
+                # Update last_run in config
+                config["schedule"]["last_run"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                self.save_email_config(config)
+                
+                return {
+                    "status": "success",
+                    "message": f"Test version check completed. Email sent to {len(recipients)} recipients.",
+                    "results": {
+                        "total": len(version_results),
+                        "successful": successful_checks,
+                        "failed": failed_checks
+                    }
+                }
+            else:
+                return {
+                    "status": "error",
+                    "message": f"Version check completed but email failed: {email_result.get('message')}"
+                }
+                
+        except Exception as e:
+            logger.error(f"❌ Error testing scheduled version check: {str(e)}")
+            return {
+                "status": "error",
+                "message": str(e)
+            }
+    
+    def send_version_report_email(self, version_results: List[Dict], successful_checks: int, 
+                                   failed_checks: int, target_version: str) -> Dict:
+        """Send version check report via email - matches Flask version"""
+        try:
+            # Hard-coded SMTP config matching Flask version
+            smtp_server = "smtp.larksuite.com"
+            smtp_port = 587
+            sender_email = "osm@snsoft.my"
+            sender_password = "xPuVkwARv4F5yiCW"
+            
+            # Get recipients from config file
+            config = self.load_email_config()
+            recipient_email = config.get("recipients", [])
+            
+            if not recipient_email:
+                return {"status": "error", "message": "No recipients configured"}
+            
+            # Create message
+            msg = MIMEMultipart()
+            msg['From'] = sender_email
+            msg['To'] = ', '.join(recipient_email)
+            msg['Subject'] = f"Image Recon Version Check Report - {target_version} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            
+            # Create email body
+            total_servers = len(version_results)
+            success_rate = (successful_checks / total_servers * 100) if total_servers > 0 else 0
+            
+            # Group results by status
+            successful_results = [r for r in version_results if r.get('success', False)]
+            different_version_results = [r for r in version_results if not r.get('success', False) and r.get('status', '').startswith('Different')]
+            error_results = [r for r in version_results if not r.get('success', False) and not r.get('status', '').startswith('Different')]
+            
+            html_body = f"""
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                    .header {{ background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; border-radius: 10px; text-align: center; }}
+                    .summary {{ background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; }}
+                    .stats {{ display: flex; justify-content: space-around; margin: 20px 0; }}
+                    .stat {{ text-align: center; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+                    .stat.success {{ border-left: 4px solid #4CAF50; }}
+                    .stat.warning {{ border-left: 4px solid #ff9800; }}
+                    .stat.error {{ border-left: 4px solid #f44336; }}
+                    .stat.info {{ border-left: 4px solid #2196F3; }}
+                    .results {{ margin: 20px 0; }}
+                    .result-section {{ margin: 20px 0; }}
+                    .result-item {{ padding: 10px; margin: 5px 0; border-radius: 5px; }}
+                    .result-item.success {{ background: rgba(76, 175, 80, 0.1); border-left: 4px solid #4CAF50; }}
+                    .result-item.warning {{ background: rgba(255, 152, 0, 0.1); border-left: 4px solid #ff9800; }}
+                    .result-item.error {{ background: rgba(244, 67, 54, 0.1); border-left: 4px solid #f44336; }}
+                    .server-name {{ font-weight: bold; color: #2c3e50; }}
+                    .version {{ font-family: monospace; background: rgba(0,0,0,0.1); padding: 2px 6px; border-radius: 3px; }}
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>🔍 OSM Version Check Report</h1>
+                    <p>Target Version: <span class="version">{target_version}</span></p>
+                    <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                </div>
+                
+                <div class="summary">
+                    <h2>📊 Summary</h2>
+                    <div class="stats">
+                        <div class="stat success">
+                            <h3>{successful_checks}</h3>
+                            <p>Target Version Found</p>
+                        </div>
+                        <div class="stat warning">
+                            <h3>{len(different_version_results)}</h3>
+                            <p>Different Versions</p>
+                        </div>
+                        <div class="stat error">
+                            <h3>{len(error_results)}</h3>
+                            <p>Errors/Not Found</p>
+                        </div>
+                        <div class="stat info">
+                            <h3>{total_servers}</h3>
+                            <p>Total Servers</p>
+                        </div>
+                    </div>
+                    <p><strong>Success Rate:</strong> {success_rate:.1f}%</p>
+                </div>
+                
+                <div class="results">
+                    {f'''
+                    <div class="result-section">
+                        <h3>✅ Servers with Target Version ({len(successful_results)})</h3>
+                        {''.join([f'<div class="result-item success"><span class="server-name">{r["hostname"]}</span> ({r["ip"]}) - Version: <span class="version">{r["version"]}</span></div>' for r in successful_results])}
+                    </div>
+                    ''' if successful_results else ''}
+                    
+                    {f'''
+                    <div class="result-section">
+                        <h3>⚠️ Servers with Different Versions ({len(different_version_results)})</h3>
+                        {''.join([f'<div class="result-item warning"><span class="server-name">{r["hostname"]}</span> ({r["ip"]}) - Found: <span class="version">{r["version"]}</span> | Status: {r.get("status", "Unknown")}</div>' for r in different_version_results])}
+                    </div>
+                    ''' if different_version_results else ''}
+                    
+                    {f'''
+                    <div class="result-section">
+                        <h3>❌ Servers with Issues ({len(error_results)})</h3>
+                        {''.join([f'<div class="result-item error"><span class="server-name">{r["hostname"]}</span> ({r["ip"]}) - Version: <span class="version">{r.get("version", "N/A")}</span> | Error: {r.get("error", "Unknown error")}</div>' for r in error_results])}
+                    </div>
+                    ''' if error_results else ''}
+                </div>
+                
+                <div style="margin-top: 30px; padding: 15px; background: #e3f2fd; border-radius: 8px; text-align: center;">
+                    <p><em>This report was generated automatically by the OSM Tools Hub</em></p>
+                </div>
+            </body>
+            </html>
+            """
+            
+            # Attach HTML body
+            msg.attach(MIMEText(html_body, 'html'))
+            
+            # Send email
+            logger.info(f"📧 Sending version report email to {len(recipient_email)} recipients")
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            server.login(sender_email, sender_password)
+            text = msg.as_string()
+            server.sendmail(sender_email, recipient_email, text)
+            server.quit()
+            
+            logger.info(f"✅ Version report email sent successfully to {', '.join(recipient_email)}")
+            return {"status": "success", "message": "Email sent successfully"}
+            
+        except Exception as e:
+            logger.error(f"❌ Error sending version report email: {str(e)}")
+            return {"status": "error", "message": str(e)}
+    
     def search_machines(self, query: str) -> List[Dict]:
         """Search for machines in ir.json by machine ID - matches Flask version"""
         if not query or len(query.strip()) < 2:
@@ -488,50 +735,121 @@ class ImageReconServiceManager:
             return {"status": "error", "message": f"Update failed: {str(e)}"}
     
     def send_batch_email(self, recipients: List[str], subject: str, message: str, results: List[Dict] = None) -> Dict:
-        """Send batch email notifications"""
+        """Send batch email notifications - matches Flask version exactly"""
         try:
-            config = self.load_email_config()
-            smtp_config = config.get('smtp', {})
+            # Hard-coded SMTP config matching Flask version
+            smtp_server = "smtp.larksuite.com"
+            smtp_port = 587
+            sender_email = "osm@snsoft.my"
+            sender_password = "xPuVkwARv4F5yiCW"
             
-            if not smtp_config.get('username') or not smtp_config.get('password'):
-                return {"status": "error", "message": "SMTP configuration incomplete"}
+            # Get recipients from config file if not provided
+            if not recipients:
+                config = self.load_email_config()
+                recipients = config.get("recipients", [])
             
-            # Create email content
+            if not recipients:
+                return {"status": "error", "message": "No recipients configured"}
+            
+            # Create message
             msg = MIMEMultipart()
-            msg['From'] = smtp_config['username']
+            msg['From'] = sender_email
             msg['To'] = ', '.join(recipients)
-            msg['Subject'] = subject
+            msg['Subject'] = subject or f"OSM Tools Notification - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             
-            # Build email body
-            body = f"{message}\n\n"
-            
+            # Build HTML email body matching Flask version
             if results:
-                body += "Operation Results:\n"
-                body += "=" * 50 + "\n"
+                # Calculate statistics
+                total_servers = len(results)
+                successful_results = [r for r in results if r.get('success', False) or r.get('status', '').lower() == 'success']
+                error_results = [r for r in results if not (r.get('success', False) or r.get('status', '').lower() == 'success')]
+                success_rate = (len(successful_results) / total_servers * 100) if total_servers > 0 else 0
                 
-                for result in results:
-                    hostname = result.get('hostname', 'Unknown')
-                    status = result.get('status', 'Unknown')
-                    message = result.get('message', '')
-                    body += f"• {hostname}: {status.upper()}"
-                    if message:
-                        body += f" - {message}"
-                    body += "\n"
-                
-                body += "\n" + "=" * 50 + "\n"
-                body += f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-            
-            msg.attach(MIMEText(body, 'plain'))
+                html_body = f"""
+                <html>
+                <head>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                        .header {{ background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; border-radius: 10px; text-align: center; }}
+                        .summary {{ background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; }}
+                        .stats {{ display: flex; justify-content: space-around; margin: 20px 0; }}
+                        .stat {{ text-align: center; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+                        .stat.success {{ border-left: 4px solid #4CAF50; }}
+                        .stat.error {{ border-left: 4px solid #f44336; }}
+                        .stat.info {{ border-left: 4px solid #2196F3; }}
+                        .results {{ margin: 20px 0; }}
+                        .result-section {{ margin: 20px 0; }}
+                        .result-item {{ padding: 10px; margin: 5px 0; border-radius: 5px; }}
+                        .result-item.success {{ background: rgba(76, 175, 80, 0.1); border-left: 4px solid #4CAF50; }}
+                        .result-item.error {{ background: rgba(244, 67, 54, 0.1); border-left: 4px solid #f44336; }}
+                        .server-name {{ font-weight: bold; color: #2c3e50; }}
+                        .message {{ font-family: monospace; background: rgba(0,0,0,0.1); padding: 2px 6px; border-radius: 3px; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>🔔 OSM Tools Notification</h1>
+                        <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                    </div>
+                    
+                    <div class="summary">
+                        <h2>📊 Summary</h2>
+                        <div class="stats">
+                            <div class="stat success">
+                                <h3>{len(successful_results)}</h3>
+                                <p>Successful</p>
+                            </div>
+                            <div class="stat error">
+                                <h3>{len(error_results)}</h3>
+                                <p>Failed</p>
+                            </div>
+                            <div class="stat info">
+                                <h3>{total_servers}</h3>
+                                <p>Total Servers</p>
+                            </div>
+                        </div>
+                        <p><strong>Success Rate:</strong> {success_rate:.1f}%</p>
+                    </div>
+                    
+                    <div class="results">
+                        {f'''
+                        <div class="result-section">
+                            <h3>✅ Successful Operations ({len(successful_results)})</h3>
+                            {''.join([f'<div class="result-item success"><span class="server-name">{r.get("hostname", r.get("ip", "Unknown"))}</span> - <span class="message">{r.get("message", "Success")}</span></div>' for r in successful_results])}
+                        </div>
+                        ''' if successful_results else ''}
+                        
+                        {f'''
+                        <div class="result-section">
+                            <h3>❌ Failed Operations ({len(error_results)})</h3>
+                            {''.join([f'<div class="result-item error"><span class="server-name">{r.get("hostname", r.get("ip", "Unknown"))}</span> - <span class="message">{r.get("error", r.get("message", "Unknown error"))}</span></div>' for r in error_results])}
+                        </div>
+                        ''' if error_results else ''}
+                    </div>
+                    
+                    {f'<div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 8px;"><p><strong>Message:</strong> {message}</p></div>' if message else ''}
+                    
+                    <div style="margin-top: 30px; padding: 15px; background: #e3f2fd; border-radius: 8px; text-align: center;">
+                        <p><em>This report was generated automatically by the OSM Tools Hub</em></p>
+                    </div>
+                </body>
+                </html>
+                """
+                msg.attach(MIMEText(html_body, 'html'))
+            else:
+                # Simple text email
+                msg.attach(MIMEText(message or "No content provided", 'plain'))
             
             # Send email
-            server = smtplib.SMTP(smtp_config['server'], smtp_config['port'])
-            if smtp_config.get('use_tls', True):
-                server.starttls()
-            
-            server.login(smtp_config['username'], smtp_config['password'])
-            server.send_message(msg)
+            logger.info(f"📧 Sending email to {len(recipients)} recipients via {smtp_server}")
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            server.login(sender_email, sender_password)
+            text = msg.as_string()
+            server.sendmail(sender_email, recipients, text)
             server.quit()
             
+            logger.info(f"✅ Email sent successfully to {', '.join(recipients)}")
             return {
                 "status": "success",
                 "message": f"Email sent to {len(recipients)} recipients",

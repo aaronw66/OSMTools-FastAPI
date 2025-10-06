@@ -116,20 +116,54 @@
     <div id="emailModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeEmailModal()">&times;</span>
-            <h3><i class="fas fa-envelope"></i> Email Settings</h3>
+            <h3><i class="fas fa-clock"></i> Email Schedule Settings</h3>
             <div class="email-content">
                 
-                <!-- Current Recipients -->
+                <!-- Weekly Version Check Toggle -->
+                <div class="email-section schedule-toggle-section">
+                    <div class="schedule-header">
+                        <div>
+                            <h4 style="margin: 0;">📅 Weekly Version Check</h4>
+                            <p style="margin: 5px 0 0 0; color: #666; font-size: 13px;">
+                                Automatically check versions every <strong>Monday at 9:30 AM</strong> (Malaysia time)
+                            </p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="scheduleToggle" onchange="toggleSchedule()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Schedule Status -->
+                <div class="email-section schedule-status-section">
+                    <div class="schedule-status-header">
+                        <div>
+                            <strong>📊 Schedule Status:</strong>
+                            <span id="scheduleStatusText">Thinking...</span>
+                        </div>
+                        <button class="btn btn-test" onclick="testScheduleNow()">
+                            <i class="fas fa-play"></i> Test Now
+                        </button>
+                    </div>
+                    <div class="schedule-times">
+                        <div><strong>Next Run:</strong> <span id="nextRunTime">-</span></div>
+                        <div><strong>Last Run:</strong> <span id="lastRunTime">-</span></div>
+                    </div>
+                </div>
+
+                <!-- Email Recipients -->
                 <div class="email-section">
-                    <h4><i class="fas fa-users"></i> Current Recipients</h4>
-                    <div id="recipientsList">
+                    <h4>📧 Email Recipients</h4>
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">Current Recipients:</label>
+                    <div id="recipientsList" class="recipients-list">
                         <!-- Recipients will be loaded here -->
                     </div>
                 </div>
 
                 <!-- Add New Recipient -->
                 <div class="email-section">
-                    <h4><i class="fas fa-user-plus"></i> Add New Recipient</h4>
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">Add New Recipient:</label>
                     <div class="form-group">
                         <input type="email" id="newRecipientEmail" placeholder="Enter email address">
                         <button class="btn btn-primary" onclick="addEmailRecipient()">
@@ -138,19 +172,11 @@
                     </div>
                 </div>
 
-                <!-- Send Test Email -->
-                <div class="email-section">
-                    <h4><i class="fas fa-paper-plane"></i> Send Test Email</h4>
-                    <div class="form-group">
-                        <textarea id="testEmailMessage" placeholder="Enter test message..." rows="3"></textarea>
-                        <button class="btn btn-secondary" onclick="sendTestEmail()">
-                            <i class="fas fa-paper-plane"></i> Send Test
-                        </button>
-                    </div>
-                </div>
-
                 <div class="modal-actions">
                     <button class="btn btn-secondary" onclick="closeEmailModal()">Close</button>
+                    <button class="btn btn-info" onclick="refreshEmailSettings()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
                 </div>
             </div>
         </div>

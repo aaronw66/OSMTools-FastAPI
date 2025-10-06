@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Add loading state
                 const button = e.target;
                 const originalText = button.textContent;
-                button.textContent = 'Loading...';
+                button.textContent = 'Thinking...';
                 button.style.opacity = '0.7';
                 
                 // Reset after navigation (in case of same-page navigation)

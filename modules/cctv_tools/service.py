@@ -633,11 +633,11 @@ class CCTVToolsService:
         }
         
         try:
-            # Step 1: Check if device is reachable (TCP connection test instead of ping)
+            # Step 1: Check if device is reachable AND responsive (not just TCP connection)
             import socket
             
             try:
-                # Try to connect to port 80 (HTTP) with a short timeout
+                # First check TCP connection to port 80
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.settimeout(3)
                 sock.connect((ip, 80))
@@ -645,6 +645,19 @@ class CCTVToolsService:
             except (socket.timeout, socket.error, OSError) as e:
                 result['message'] = f'Device offline - connection failed: {str(e)}'
                 return result
+            
+            # Step 1.5: Verify the HTTP service is actually responding (not just TCP listening)
+            # This catches devices that are rebooting or updating firmware
+            try:
+                # Try a simple HTTP GET to verify the web server is responding
+                test_response = requests.get(f"http://{ip}/", timeout=3)
+                # If we get here, server is responding (even if 404/401, it's still online)
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                result['message'] = f'Device not responding - may be rebooting or updating firmware'
+                return result
+            except Exception:
+                # Other exceptions (like HTTP errors) are fine - server is responding
+                pass
             
             # Step 2: Get device info from /digest/frmGetFactoryInfo
             device_info_url = f"http://{ip}/digest/frmGetFactoryInfo"

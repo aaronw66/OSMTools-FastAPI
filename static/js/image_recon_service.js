@@ -178,7 +178,7 @@ function displayServers() {
                      title="Click to view logs for ${server.hostname}">
                     <i class="fas fa-desktop server-icon"></i>
                     <div class="server-name">${server.hostname} ${devBadge}</div>
-                    <div class="server-version" id="version-${server.ip.replace(/\./g, '-')}">Loading...</div>
+                    <div class="server-version" id="version-${server.ip.replace(/\./g, '-')}">Thinking...</div>
                     <div class="server-status ${statusClass}">${server.status === 'development' ? 'Development' : 'Online'}</div>
                 </div>
             `;
@@ -222,9 +222,9 @@ async function loadServerVersions() {
                 }
             });
         } else {
-            // API returned error - update all Loading... elements to show error
+            // API returned error - update all Thinking... elements to show error
             document.querySelectorAll('.server-version').forEach(el => {
-                if (el.textContent === 'Loading...') {
+                if (el.textContent === 'Thinking...') {
                     el.textContent = 'Error';
                     el.style.background = 'rgba(244, 67, 54, 0.3)';
                     el.style.color = '#ff7b72';
@@ -233,9 +233,9 @@ async function loadServerVersions() {
         }
     } catch (error) {
         console.error('Error loading server versions:', error);
-        // Update all Loading... elements to show error
+        // Update all Thinking... elements to show error
         document.querySelectorAll('.server-version').forEach(el => {
-            if (el.textContent === 'Loading...') {
+            if (el.textContent === 'Thinking...') {
                 el.textContent = 'Error';
                 el.style.background = 'rgba(244, 67, 54, 0.3)';
                 el.style.color = '#ff7b72';
@@ -410,31 +410,130 @@ async function loadEmailSettings() {
         
         if (data.status === 'success') {
             emailConfig = data.config;
+            updateScheduleDisplay();
         }
     } catch (error) {
         console.error('Error loading email settings:', error);
     }
 }
 
-function showEmailModal() {
+async function showEmailModal() {
     const modal = document.getElementById('emailModal');
     modal.style.display = 'block';
+    
+    // Load settings first
+    await loadEmailSettings();
     displayEmailRecipients();
+}
+
+function updateScheduleDisplay() {
+    if (!emailConfig) return;
+    
+    const scheduleToggle = document.getElementById('scheduleToggle');
+    const scheduleStatusText = document.getElementById('scheduleStatusText');
+    const nextRunTime = document.getElementById('nextRunTime');
+    const lastRunTime = document.getElementById('lastRunTime');
+    
+    // Update toggle
+    if (scheduleToggle) {
+        scheduleToggle.checked = emailConfig.schedule?.enabled || false;
+    }
+    
+    // Update status text
+    if (scheduleStatusText) {
+        scheduleStatusText.textContent = emailConfig.schedule?.enabled ? 'Enabled' : 'Disabled';
+        scheduleStatusText.style.color = emailConfig.schedule?.enabled ? '#4CAF50' : '#999';
+    }
+    
+    // Update next run time
+    if (nextRunTime) {
+        nextRunTime.textContent = emailConfig.schedule?.next_run || '-';
+    }
+    
+    // Update last run time
+    if (lastRunTime) {
+        lastRunTime.textContent = emailConfig.schedule?.last_run || '-';
+    }
+}
+
+async function toggleSchedule() {
+    const scheduleToggle = document.getElementById('scheduleToggle');
+    const enabled = scheduleToggle.checked;
+    
+    try {
+        const response = await fetch('/image-recon-service/toggle-schedule', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ enabled: enabled })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            await loadEmailSettings();
+            CommonUtils.showAlert(data.message, 'success');
+        } else {
+            // Revert toggle on failure
+            scheduleToggle.checked = !enabled;
+            CommonUtils.showAlert('Failed to toggle schedule: ' + data.message, 'error');
+        }
+    } catch (error) {
+        // Revert toggle on error
+        scheduleToggle.checked = !enabled;
+        console.error('Error toggling schedule:', error);
+        CommonUtils.showAlert('Error toggling schedule: ' + error.message, 'error');
+    }
+}
+
+async function testScheduleNow() {
+    const confirmTest = confirm('This will check all server versions and send a test email report. Continue?');
+    if (!confirmTest) return;
+    
+    CommonUtils.showAlert('Starting version check... This may take a few minutes.', 'info');
+    
+    try {
+        const response = await fetch('/image-recon-service/test-scheduled-version-check', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            await loadEmailSettings();
+            CommonUtils.showAlert(`✅ ${data.message}`, 'success');
+        } else {
+            CommonUtils.showAlert('Test failed: ' + data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error testing schedule:', error);
+        CommonUtils.showAlert('Error testing schedule: ' + error.message, 'error');
+    }
+}
+
+async function refreshEmailSettings() {
+    await loadEmailSettings();
+    displayEmailRecipients();
+    CommonUtils.showAlert('Email settings refreshed!', 'success');
 }
 
 function displayEmailRecipients() {
     const recipientsList = document.getElementById('recipientsList');
     
     if (!emailConfig.recipients || emailConfig.recipients.length === 0) {
-        recipientsList.innerHTML = '<p style="color: #8b949e;">No recipients configured</p>';
+        recipientsList.innerHTML = '<p style="color: #8b949e; text-align: center;">No recipients configured</p>';
         return;
     }
     
     const recipientsHTML = emailConfig.recipients.map(email => `
         <div class="recipient-item">
             <span class="recipient-email">${email}</span>
-            <button class="remove-recipient" onclick="removeEmailRecipient('${email}')">
-                <i class="fas fa-times"></i>
+            <button class="recipient-remove" onclick="removeEmailRecipient('${email}')">
+                <i class="fas fa-times"></i> Remove
             </button>
         </div>
     `).join('');
