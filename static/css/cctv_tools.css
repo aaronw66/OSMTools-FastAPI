@@ -3,16 +3,19 @@
 /* Override body background for CCTV Tools */
 body {
     background: linear-gradient(135deg, #1a1d29 0%, #0f1117 100%) !important;
+    overflow: hidden; /* Prevent page scrolling */
+    height: 100vh;
+    padding-top: 70px !important; /* Match other pages */
 }
 
 /* Main Container */
 .main-container {
     display: flex;
     justify-content: center;
-    align-items: flex-start;
-    min-height: calc(100vh - 120px);
-    padding: 40px 20px;
-    margin-top: 80px;
+    align-items: center; /* Center vertically */
+    height: calc(100vh - 70px); /* Full viewport height minus header (70px) */
+    padding: 20px;
+    overflow: hidden; /* Prevent scrolling */
 }
 
 /* CCTV Card - Main centered card */
@@ -96,6 +99,34 @@ body {
 }
 
 .file-upload-btn:hover {
+    background: #357abd;
+}
+
+/* File input styling */
+#csvFile {
+    flex: 1;
+    padding: 8px 12px;
+    background: #2d3548;
+    border: 1px solid #3d4558;
+    border-radius: 4px;
+    color: #e8eaed;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+#csvFile::file-selector-button {
+    background: #4a90e2;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-right: 10px;
+    transition: all 0.2s ease;
+}
+
+#csvFile::file-selector-button:hover {
     background: #357abd;
 }
 
@@ -857,4 +888,36 @@ body {
     font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
+}
+
+/* Sortable table headers */
+.config-device-table th {
+    user-select: none;
+    position: relative;
+}
+
+.config-device-table th:hover {
+    background: rgba(91, 124, 255, 0.2);
+}
+
+.sort-icon {
+    opacity: 0.3;
+    margin-left: 5px;
+    font-size: 10px;
+}
+
+.config-device-table th.sort-asc .sort-icon::before {
+    content: '▲';
+    opacity: 1;
+}
+
+.config-device-table th.sort-desc .sort-icon::before {
+    content: '▼';
+    opacity: 1;
+}
+
+.config-device-table th.sort-asc .sort-icon,
+.config-device-table th.sort-desc .sort-icon {
+    opacity: 1;
+    color: #5b7cff;
 }

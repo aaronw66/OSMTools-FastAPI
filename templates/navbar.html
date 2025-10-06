@@ -1,0 +1,39 @@
+<!-- Shared Navigation Bar -->
+<nav class="navbar">
+    <h1 class="navbar-brand">OSMTools</h1>
+    <div class="navbar-nav">
+        <a href="/image-recon-json" class="nav-item" data-page="image-recon-json">
+            <span class="nav-item-icon">📊</span>
+            Image Recon JSON
+        </a>
+        <a href="/image-recon-service" class="nav-item" data-page="image-recon-service">
+            <span class="nav-item-icon">🔄</span>
+            Image Recon Service
+        </a>
+        <a href="/cctv-tools" class="nav-item" data-page="cctv-tools">
+            <span class="nav-item-icon">📹</span>
+            CCTV Tools
+        </a>
+        <a href="/osmachine" class="nav-item" data-page="osmachine">
+            <span class="nav-item-icon">🖥️</span>
+            OSMachine
+        </a>
+        <a href="/config-editor" class="nav-item" data-page="config-editor">
+            <span class="nav-item-icon">⚙️</span>
+            Config Editor
+        </a>
+    </div>
+</nav>
+
+<script>
+    // Auto-set active nav item based on current path
+    document.addEventListener('DOMContentLoaded', function() {
+        const currentPath = window.location.pathname;
+        document.querySelectorAll('.nav-item').forEach(item => {
+            const page = item.getAttribute('data-page');
+            if (currentPath.includes(page)) {
+                item.classList.add('active');
+            }
+        });
+    });
+</script>

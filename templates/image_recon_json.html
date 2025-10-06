@@ -9,32 +9,7 @@
     <link rel="icon" href="/static/zy.ico" type="image/x-icon">
 </head>
 <body>
-    <!-- Top Navigation -->
-    <nav class="navbar">
-        <h1 class="navbar-brand">OSMTools</h1>
-        <div class="navbar-nav">
-            <a href="/image-recon-json" class="nav-item active">
-                <span class="nav-item-icon">📊</span>
-                Image Recon JSON
-            </a>
-            <a href="/image-recon-service" class="nav-item">
-                <span class="nav-item-icon">🔄</span>
-                Image Recon Service
-            </a>
-            <a href="/cctv-tools" class="nav-item">
-                <span class="nav-item-icon">📹</span>
-                CCTV Tools
-            </a>
-            <a href="/osmachine" class="nav-item">
-                <span class="nav-item-icon">🖥️</span>
-                OSMachine
-            </a>
-            <a href="/config-editor" class="nav-item">
-                <span class="nav-item-icon">⚙️</span>
-                Config Editor
-            </a>
-        </div>
-    </nav>
+    {% include 'navbar.html' %}
 
     <!-- Main Content -->
     <div class="main-container">

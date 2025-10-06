@@ -5,3 +5,5 @@ logs/cctv_tools.log
 *.log
 logs/cctv_tools.log
 *.pyc
+*.pyc
+/modules/image_recon_service/__pycache__

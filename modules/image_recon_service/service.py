@@ -37,38 +37,46 @@ class ImageReconServiceManager:
     
     def get_image_recon_servers(self) -> List[Dict]:
         """Get list of server IPs from image-recon.json"""
-        json_file_path = '/opt/compose-conf/prometheus/config/conf.d/node/image-recon.json'
+        # Try production path first, then local development path
+        json_file_paths = [
+            '/opt/compose-conf/prometheus/config/conf.d/node/image-recon.json',  # Production
+            os.path.join(settings.TYPE_DIR, 'ir.json')  # Local development
+        ]
         
-        try:
-            with open(json_file_path, 'r') as f:
-                data = json.load(f)
-            
-            servers = []
-            if isinstance(data, list):
-                for item in data:
-                    targets = item.get('targets', [])
-                    for target in targets:
-                        ip = target.split(':')[0]
-                        hostname = item.get('labels', {}).get('hostname', 'Unknown Host')
-                        label = hostname.split('-')[0]
-                        
-                        # Filter out SRS servers for restart operations
-                        if label.upper() != 'SRS':
-                            servers.append({
-                                "ip": ip,
-                                "hostname": hostname,
-                                "label": label,
-                                "status": "unknown"
-                            })
-            
-            return servers
-        except FileNotFoundError:
-            print(f"File not found: {json_file_path} - using mock data for development")
-            # Return mock data for development/testing when file doesn't exist
-            return self._get_mock_servers()
-        except Exception as e:
-            print(f"Error reading image-recon.json: {e}")
-            return self._get_mock_servers()
+        for json_file_path in json_file_paths:
+            try:
+                with open(json_file_path, 'r') as f:
+                    data = json.load(f)
+                
+                servers = []
+                if isinstance(data, list):
+                    for item in data:
+                        targets = item.get('targets', [])
+                        for target in targets:
+                            ip = target.split(':')[0]
+                            hostname = item.get('labels', {}).get('hostname', 'Unknown Host')
+                            label = hostname.split('-')[0]
+                            
+                            # Filter out SRS servers for restart operations
+                            if label.upper() != 'SRS':
+                                servers.append({
+                                    "ip": ip,
+                                    "hostname": hostname,
+                                    "label": label,
+                                    "status": "unknown"
+                                })
+                
+                print(f"✅ Loaded {len(servers)} servers from {json_file_path}")
+                return servers
+            except FileNotFoundError:
+                continue
+            except Exception as e:
+                print(f"Error reading {json_file_path}: {e}")
+                continue
+        
+        # If no config files found, use mock data
+        print("⚠️ No config files found - using mock data for development")
+        return self._get_mock_servers()
     
     def _get_mock_servers(self) -> List[Dict]:
         """Return mock server data for development/testing"""

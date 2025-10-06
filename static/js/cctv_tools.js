@@ -652,6 +652,21 @@ function showConfigurationModal(devices) {
     // Set total devices count
     totalDevicesSpan.textContent = devices.length;
     
+    // Store devices globally for sorting
+    window.configDevices = devices;
+    window.configSortColumn = null;
+    window.configSortDirection = 'asc';
+    
+    // Render the table
+    renderConfigDeviceTable();
+    
+    modal.style.display = 'block';
+}
+
+function renderConfigDeviceTable() {
+    const deviceListBody = document.getElementById('configDeviceList');
+    const devices = window.configDevices || [];
+    
     // Build device list table
     let html = '';
     devices.forEach((device, index) => {
@@ -677,10 +692,63 @@ function showConfigurationModal(devices) {
     });
     
     deviceListBody.innerHTML = html;
-    modal.style.display = 'block';
+}
+
+function sortConfigTable(column) {
+    const devices = window.configDevices || [];
     
-    // Store devices for later use
+    // Toggle sort direction if clicking same column
+    if (window.configSortColumn === column) {
+        window.configSortDirection = window.configSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        window.configSortColumn = column;
+        window.configSortDirection = 'asc';
+    }
+    
+    // Sort devices
+    devices.sort((a, b) => {
+        let aVal = a[column] || '';
+        let bVal = b[column] || '';
+        
+        // Convert to lowercase for string comparison
+        if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+        if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+        
+        if (aVal < bVal) return window.configSortDirection === 'asc' ? -1 : 1;
+        if (aVal > bVal) return window.configSortDirection === 'asc' ? 1 : -1;
+        return 0;
+    });
+    
     window.configDevices = devices;
+    renderConfigDeviceTable();
+    
+    // Update sort indicators
+    updateSortIndicators(column);
+}
+
+function updateSortIndicators(activeColumn) {
+    // Remove all existing sort indicators
+    document.querySelectorAll('.config-device-table th').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+    });
+    
+    // Add sort indicator to active column
+    const columnMap = {
+        'ip': 0,
+        'device_name': 1,
+        'room': 2,
+        'user': 3,
+        'build_date': 4,
+        'status': 5
+    };
+    
+    const thIndex = columnMap[activeColumn];
+    if (thIndex !== undefined) {
+        const th = document.querySelectorAll('.config-device-table th')[thIndex];
+        if (th) {
+            th.classList.add(window.configSortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+        }
+    }
 }
 
 async function configureSingleDevice(ip, index) {

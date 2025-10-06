@@ -5,51 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <title>Image Recognition Service Manager</title>
-    <link rel="stylesheet" href="/static/css/common.css?v=2">
-    <link rel="stylesheet" href="/static/css/image_recon_service.css?v=2">
+    <link rel="stylesheet" href="/static/css/common.css?v=3">
+    <link rel="stylesheet" href="/static/css/image_recon_service.css?v=3">
     <link rel="icon" href="/static/zy.ico" type="image/x-icon">
 </head>
 <body>
-    <!-- Top Navigation -->
-    <nav class="navbar">
-        <h1 class="navbar-brand">OSMTools</h1>
-        <div class="navbar-nav">
-            <a href="/image-recon-json" class="nav-item">
-                <span class="nav-item-icon">📊</span>
-                Image Recon JSON
-            </a>
-            <a href="/image-recon-service" class="nav-item active">
-                <span class="nav-item-icon">🔄</span>
-                Image Recon Service
-            </a>
-            <a href="/cctv-tools" class="nav-item">
-                <span class="nav-item-icon">📹</span>
-                CCTV Tools
-            </a>
-            <a href="/osmachine" class="nav-item">
-                <span class="nav-item-icon">🖥️</span>
-                OSMachine
-            </a>
-            <a href="/config-editor" class="nav-item">
-                <span class="nav-item-icon">⚙️</span>
-                Config Editor
-            </a>
-        </div>
-    </nav>
+    {% include 'navbar.html' %}
 
     <!-- Search Container -->
     <div class="search-container">
-        <input type="text" id="searchBox" placeholder="🔍 Find Machine..." />
-        <div class="search-actions">
-            <button id="refreshBtn" class="action-btn" onclick="refreshServers()">
-                <i class="fas fa-sync-alt"></i> Refresh
-            </button>
-            <button id="updateAllBtn" class="action-btn update-btn" onclick="showUpdateModal()">
-                <i class="fas fa-download"></i> Update All
-            </button>
-            <button id="emailBtn" class="action-btn email-btn" onclick="showEmailModal()">
-                <i class="fas fa-envelope"></i> Email Settings
-            </button>
+        <div class="search-box-wrapper">
+            <input type="text" id="searchBox" placeholder="🔍 Find Machine..." />
+            <div class="search-actions">
+                <button id="refreshBtn" class="action-btn" onclick="refreshServers()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+                <button id="updateAllBtn" class="action-btn update-btn" onclick="showUpdateModal()">
+                    <i class="fas fa-download"></i> Update All
+                </button>
+                <button id="emailBtn" class="action-btn email-btn" onclick="showEmailModal()">
+                    <i class="fas fa-envelope"></i> Email Settings
+                </button>
+            </div>
         </div>
         <div id="searchResults" class="search-results"></div>
     </div>
