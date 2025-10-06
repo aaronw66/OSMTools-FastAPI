@@ -154,6 +154,15 @@ async def get_logs(request: Request):
     except Exception as e:
         return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
 
+@router.post("/refresh-servers")
+async def refresh_servers():
+    """Refresh server list by fetching IDs from each server - matches Flask version"""
+    try:
+        result = service_manager.refresh_servers()
+        return JSONResponse(content=result)
+    except Exception as e:
+        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+
 @router.get("/get-email-settings")
 async def get_email_settings():
     """Get current email configuration"""

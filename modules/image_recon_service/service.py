@@ -211,30 +211,76 @@ class ImageReconServiceManager:
             return False
     
     def search_machines(self, query: str) -> List[Dict]:
-        """Search for machines by hostname or ID"""
+        """Search for machines in ir.json by machine ID - matches Flask version"""
         if not query or len(query.strip()) < 2:
             return []
         
-        servers = self.get_image_recon_servers()
+        # Read server data from ir.json with caching
+        server_groups = self._get_cached_server_data_from_ir_json()
+        
+        if not server_groups:
+            logger.warning("No server data available in ir.json for search")
+            return []
+        
         matching_servers = []
         query_lower = query.lower().strip()
+        max_results = 5  # Limit results for faster response (matches Flask)
         
-        for server in servers:
-            hostname = server.get('hostname', '').lower()
-            ip = server.get('ip', '').lower()
-            label = server.get('label', '').lower()
+        # Search for the query in machine IDs
+        for label, servers in server_groups.items():
+            if len(matching_servers) >= max_results:
+                break
             
-            # Search in hostname, IP, or label
-            if (query_lower in hostname or 
-                query_lower in ip or 
-                query_lower in label):
-                matching_servers.append(server)
-                
-                # Limit results for performance
-                if len(matching_servers) >= 10:
+            for server in servers:
+                if len(matching_servers) >= max_results:
                     break
+                
+                hostname = server.get('hostname', 'Unknown Host')
+                ids = server.get('ids', [])
+                
+                # Search for the query in the ids list (case-insensitive)
+                matching_ids = [id_obj['id'] for id_obj in ids if query_lower in id_obj['id'].lower()]
+                
+                if matching_ids:
+                    matching_servers.append({
+                        "hostname": hostname,
+                        "matching_ids": matching_ids,
+                        "label": label
+                    })
         
+        logger.info(f"🔍 Search for '{query}': Found {len(matching_servers)} matching servers")
         return matching_servers
+    
+    def _get_cached_server_data_from_ir_json(self) -> Dict:
+        """Get server data from ir.json with caching"""
+        current_time = time.time()
+        
+        # Check if cache is still valid
+        if self.server_cache and (current_time - self.last_cache_update < self.cache_ttl):
+            return self.server_cache
+        
+        # Cache miss or expired - read from file
+        json_file_path = os.path.join(settings.TYPE_DIR, 'ir.json')
+        
+        try:
+            with open(json_file_path, 'r') as f:
+                data = json.load(f)
+            
+            # Ensure data is a dictionary with labels as keys
+            if isinstance(data, dict):
+                self.server_cache = data
+                self.last_cache_update = current_time
+                return data
+            else:
+                logger.error("ir.json structure is not a dictionary")
+                return {}
+                
+        except FileNotFoundError:
+            logger.warning(f"ir.json not found at {json_file_path}. Run refresh to create it.")
+            return {}
+        except Exception as e:
+            logger.error(f"📄 Error reading ir.json: {str(e)}")
+            return {}
     
     def get_server_logs(self, server_ip: str, lines: int = 50) -> Tuple[bool, str]:
         """Get logs from a specific server"""
@@ -520,6 +566,136 @@ class ImageReconServiceManager:
         else:
             self._version_cache.clear()
             logger.info("🗑️ Cleared all version cache")
+    
+    def get_server_ids(self, server_ip: str) -> List[Dict]:
+        """Get server IDs from list.json on remote server - matches Flask version"""
+        if not SSH_AVAILABLE:
+            logger.error(f"[{server_ip}] SSH not available")
+            return []
+        
+        try:
+            # Check if SSH key exists
+            if not os.path.exists(self.ssh_key_path):
+                logger.error(f"Private key not found at: {self.ssh_key_path}")
+                return []
+            
+            logger.info(f"🔌 Attempting to SSH into server {server_ip}")
+            
+            # Create an SSH client
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            
+            # Load private key
+            private_key = paramiko.RSAKey.from_private_key_file(self.ssh_key_path)
+            
+            # Connect to the server
+            ssh.connect(server_ip, username=self.ssh_username, pkey=private_key, timeout=30)
+            
+            logger.info(f"✅ Successfully connected to {server_ip}")
+            
+            # Run the command to fetch the ids from list.json
+            command = "cat /usr/bin/OSMWatcher/list.json | grep -oP '\"id\": \"[^\"]+'"
+            logger.info(f"🔍 Running command: {command}")
+            
+            stdin, stdout, stderr = ssh.exec_command(command)
+            
+            # Capture the results from stdout
+            ids = stdout.read().decode()
+            
+            ssh.close()
+            
+            # Check if there were any results
+            if not ids:
+                logger.warning(f"⚠️ No IDs found for server {server_ip}")
+                return []
+            
+            # Clean the results by removing extra characters and extracting the IDs
+            cleaned_ids = [line.split(":")[1].strip().replace('"', '') for line in ids.splitlines()]
+            
+            # Prepare the cleaned IDs in the desired format
+            id_objects = [{"id": id.strip()} for id in cleaned_ids]
+            
+            logger.info(f"📋 Fetched {len(id_objects)} IDs for {server_ip}")
+            
+            return id_objects
+            
+        except Exception as e:
+            logger.error(f"📄 Error reading list.json from {server_ip}: {str(e)}")
+            return []
+    
+    def refresh_servers(self) -> Dict:
+        """Refresh server list by fetching IDs from each server and updating ir.json - matches Flask version"""
+        try:
+            logger.info("=" * 80)
+            logger.info("🔄 SERVER REFRESH INITIATED")
+            logger.info("=" * 80)
+            
+            # Read server groups from image-recon.json
+            server_groups = self.get_image_recon_servers()
+            
+            if not server_groups:
+                return {"status": "error", "message": "No servers found in image-recon.json"}
+            
+            # Initialize the result data structure
+            refreshed_data = {}
+            total_servers = 0
+            successful_fetches = 0
+            
+            # Loop through the servers and fetch the IDs for each server
+            for label, servers in server_groups.items():
+                refreshed_data[label] = []
+                
+                for server in servers:
+                    server_ip = server['ip']
+                    hostname = server['hostname']
+                    total_servers += 1
+                    
+                    # Fetch the server IDs by SSH'ing into the server
+                    ids = self.get_server_ids(server_ip)
+                    
+                    if ids:
+                        successful_fetches += 1
+                        refreshed_data[label].append({
+                            "hostname": hostname,
+                            "ids": ids
+                        })
+                    else:
+                        refreshed_data[label].append({
+                            "hostname": hostname,
+                            "ids": []  # If no IDs were fetched, set an empty list
+                        })
+            
+            # Define the path to store the JSON file (ir.json)
+            json_file_path = os.path.join(settings.TYPE_DIR, 'ir.json')
+            
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(json_file_path), exist_ok=True)
+            
+            # Write the refreshed server list to the JSON file
+            with open(json_file_path, 'w') as f:
+                json.dump(refreshed_data, f, indent=4)
+            
+            logger.info(f"🔄 Server list has been refreshed and written to {json_file_path}")
+            
+            # Invalidate cache after refresh
+            self.server_cache = {}
+            self.last_cache_update = 0
+            logger.info("🗑️ Cache invalidated after server refresh")
+            
+            logger.info("=" * 80)
+            logger.info(f"📊 REFRESH COMPLETED: {successful_fetches}/{total_servers} servers successful")
+            logger.info("=" * 80)
+            
+            return {
+                "status": "success",
+                "message": "Server list refreshed successfully!",
+                "total_servers": total_servers,
+                "successful_fetches": successful_fetches
+            }
+            
+        except Exception as e:
+            logger.error(f"🔄 Error refreshing server list: {str(e)}")
+            return {"status": "error", "message": str(e)}
     
     def _get_server_version(self, server_ip: str) -> str:
         """Get version from server using journalctl with 10-minute cache"""

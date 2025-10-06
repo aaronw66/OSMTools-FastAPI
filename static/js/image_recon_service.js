@@ -195,26 +195,53 @@ async function loadServerVersions() {
     // Load all versions at once - matches Flask version exactly
     try {
         const response = await fetch('/image-recon-service/get-all-server-versions');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const data = await response.json();
         
         if (data.status === 'success' && data.results) {
             data.results.forEach(result => {
                 const versionElement = document.getElementById(`version-${result.ip.replace(/\./g, '-')}`);
                 if (versionElement) {
+                    // Remove loading class/animation
+                    versionElement.classList.remove('loading');
+                    
                     if (result.success && result.version !== 'Unknown') {
                         versionElement.textContent = result.version;
                         versionElement.style.background = 'rgba(76, 175, 80, 0.3)';
                         versionElement.style.borderColor = 'rgba(76, 175, 80, 0.6)';
+                        versionElement.style.color = '#7ee787';
                     } else {
                         versionElement.textContent = result.version || 'N/A';
                         versionElement.style.background = 'rgba(244, 67, 54, 0.3)';
                         versionElement.style.borderColor = 'rgba(244, 67, 54, 0.6)';
+                        versionElement.style.color = '#ff7b72';
                     }
+                }
+            });
+        } else {
+            // API returned error - update all Loading... elements to show error
+            document.querySelectorAll('.server-version').forEach(el => {
+                if (el.textContent === 'Loading...') {
+                    el.textContent = 'Error';
+                    el.style.background = 'rgba(244, 67, 54, 0.3)';
+                    el.style.color = '#ff7b72';
                 }
             });
         }
     } catch (error) {
         console.error('Error loading server versions:', error);
+        // Update all Loading... elements to show error
+        document.querySelectorAll('.server-version').forEach(el => {
+            if (el.textContent === 'Loading...') {
+                el.textContent = 'Error';
+                el.style.background = 'rgba(244, 67, 54, 0.3)';
+                el.style.color = '#ff7b72';
+            }
+        });
     }
 }
 
@@ -222,12 +249,30 @@ async function refreshServers() {
     const refreshBtn = document.getElementById('refreshBtn');
     const originalHTML = refreshBtn.innerHTML;
     
-    refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+    refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching from servers...';
     refreshBtn.disabled = true;
     
     try {
-        await loadServers();
-        CommonUtils.showAlert('Servers refreshed successfully!', 'success');
+        // Call backend to fetch IDs from each server via SSH
+        const response = await fetch('/image-recon-service/refresh-servers', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            // Reload the server list from the updated ir.json
+            await loadServers();
+            CommonUtils.showAlert(
+                `Server list refreshed! ${data.successful_fetches}/${data.total_servers} servers successful`,
+                'success'
+            );
+        } else {
+            CommonUtils.showAlert('Failed to refresh servers: ' + data.message, 'error');
+        }
     } catch (error) {
         CommonUtils.showAlert('Failed to refresh servers: ' + error.message, 'error');
     } finally {
