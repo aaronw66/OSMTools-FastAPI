@@ -28,7 +28,7 @@ class ImageReconServiceManager:
         # Use root user and production key for Image Recon servers
         self.ssh_username = "root"
         self.ssh_key_filename = "image-recon-prod.pem"
-        self.ssh_key_path = os.path.join(settings.STATIC_DIR, 'keys', self.ssh_key_filename)
+        self.ssh_key_path = os.path.join('static', 'keys', self.ssh_key_filename)
         self.email_config_path = os.path.join(settings.TYPE_DIR, 'email.json')
         self.server_cache = {}
         self.last_cache_update = 0
