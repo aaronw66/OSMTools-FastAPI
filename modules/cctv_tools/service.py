@@ -701,7 +701,7 @@ class CCTVToolsService:
                         if response.status_code == 200:
                             self.logger.info(f"[{ip}] TRTC config retrieved using {auth_name}")
                             break
-            else:
+                        else:
                             last_error = f"{auth_name} returned {response.status_code}"
                     except Exception as e:
                         last_error = f"{auth_name} failed: {str(e)}"
