@@ -452,6 +452,46 @@ class ImageReconServiceManager:
             "timestamp": datetime.now().isoformat()
         }
     
+    def _get_server_version(self, server_ip: str) -> str:
+        """Get version from server using journalctl - matches Flask version exactly"""
+        if not SSH_AVAILABLE:
+            return "Unknown"
+        
+        try:
+            # Confirm that the private key exists
+            if not os.path.exists(self.ssh_key_path):
+                return "Unknown"
+            
+            # Create an SSH client
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            
+            # Load the private key for authentication
+            private_key = paramiko.RSAKey.from_private_key_file(self.ssh_key_path)
+            
+            # Attempt SSH connection with a timeout
+            ssh.connect(server_ip, username=self.ssh_username, pkey=private_key, timeout=10)
+            
+            # Run journalctl command to get version (exactly like Flask)
+            version_cmd = 'journalctl --since "10 minutes ago" | grep -o "version\\[[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+-[0-9]\\+]" | tail -1'
+            
+            stdin, stdout, stderr = ssh.exec_command(version_cmd, timeout=10)
+            version_output = stdout.read().decode().strip()
+            
+            ssh.close()
+            
+            # Extract version from format: version[3.1.2335-1]
+            if version_output and version_output.startswith('version['):
+                import re
+                version_match = re.search(r'version\[([0-9]+\.[0-9]+\.[0-9]+-[0-9]+)\]', version_output)
+                if version_match:
+                    return version_match.group(1)
+            
+            return "Unknown"
+            
+        except Exception as e:
+            return "Unknown"
+    
     def _get_logs_from_server(self, server_ip: str, lines: int = 100) -> str:
         """Get logs from server using journalctl - matches Flask version exactly"""
         if not SSH_AVAILABLE:
@@ -515,7 +555,10 @@ class ImageReconServiceManager:
                 continue
             
             try:
-                # Get logs to check version and status (like Flask version)
+                # Get version using SSH command (exactly like Flask version)
+                version = self._get_server_version(server_ip)
+                
+                # Get logs to check status
                 logs = self._get_logs_from_server(server_ip, lines=100)
                 
                 # Check if we got logs successfully
@@ -524,17 +567,10 @@ class ImageReconServiceManager:
                         "server": server_hostname,
                         "ip": server_ip,
                         "status": "offline",
-                        "version": "Unknown",
+                        "version": version,
                         "message": logs
                     })
                     continue
-                
-                # Extract version from logs (look for version pattern like "3.1.2306-1")
-                version = "Unknown"
-                import re
-                version_match = re.search(r'(\d+\.\d+\.\d+-\d+)', logs)
-                if version_match:
-                    version = version_match.group(1)
                 
                 # Check for offline indicators
                 offline_indicators = ["stopped osm service"]

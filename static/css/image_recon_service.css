@@ -345,26 +345,27 @@
 }
 
 .modal-content {
-    background: linear-gradient(135deg, #2d2d2d, #1a1a1a);
+    background: #f5f5f5;
     margin: 5% auto;
     padding: 30px;
-    border-radius: 16px;
+    border-radius: 12px;
     width: 90%;
-    max-width: 800px;
-    max-height: 80vh;
+    max-width: 1000px;
+    max-height: 85vh;
     overflow-y: auto;
-    border: 1px solid #404040;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    border: 1px solid #ddd;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
     position: relative;
 }
 
 .modal-content h3 {
-    color: #f0f6fc;
+    color: #333;
     margin-bottom: 20px;
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 1.5rem;
+    font-size: 1.3rem;
+    font-weight: 600;
 }
 
 .close {
@@ -383,21 +384,22 @@
     color: #f0f6fc;
 }
 
-/* Logs Display */
+/* Logs Display - Light theme like old Flask version */
 #logs {
-    background: #0d1117;
-    border: 1px solid #30363d;
-    border-radius: 8px;
-    padding: 20px;
+    background: #ffffff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 15px;
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-    font-size: 14px;
-    line-height: 1.5;
-    color: #f0f6fc;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #333;
     white-space: pre-wrap;
     word-wrap: break-word;
-    max-height: 400px;
+    max-height: 500px;
     overflow-y: auto;
     margin-bottom: 20px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
 }
 
 /* Modal Actions */
@@ -406,6 +408,21 @@
     gap: 15px;
     justify-content: center;
     margin-top: 20px;
+}
+
+.modal-actions .action-btn {
+    padding: 12px 30px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+}
+
+.modal-actions .action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
 /* Update Modal */
