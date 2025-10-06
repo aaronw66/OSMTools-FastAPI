@@ -177,45 +177,57 @@ class CCTVToolsService:
         return self.firmware_versions
     
     def configure_devices(self, devices: List[Dict], firmware_version: str = '') -> Dict:
-        """Configure multiple CCTV devices with TRTC settings (firmware_version not used for configuration)"""
+        """Configure multiple CCTV devices with TRTC settings in batches of 10 (firmware_version not used for configuration)"""
         if not REQUESTS_AVAILABLE:
             return {"status": "error", "message": "Requests library not available"}
         
-        self.logger.info(f"Starting TRTC configuration for {len(devices)} devices")
+        self.logger.info(f"🎛️  Starting TRTC configuration for {len(devices)} devices (10 at a time)")
         
         results = []
+        BATCH_SIZE = 10
         
-        # Use thread pool for concurrent operations (3 workers like old Flask version)
-        with futures.ThreadPoolExecutor(max_workers=3) as executor:
-            future_to_device = {
-                executor.submit(self._configure_single_device, device, firmware_version): device 
-                for device in devices
-            }
+        # Process devices in batches of 10
+        for i in range(0, len(devices), BATCH_SIZE):
+            batch = devices[i:i + BATCH_SIZE]
+            batch_num = (i // BATCH_SIZE) + 1
+            total_batches = (len(devices) + BATCH_SIZE - 1) // BATCH_SIZE
             
-            for future in futures.as_completed(future_to_device):
-                device = future_to_device[future]
-                try:
-                    result = future.result()
-                    result['device'] = f"{device['room']} ({device['ip']})"
-                    results.append(result)
-                except Exception as e:
-                    results.append({
-                        'device': f"{device['room']} ({device['ip']})",
-                        'ip': device['ip'],
-                        'status': 'error',
-                        'message': f'Configuration failed: {str(e)}',
-                        'timestamp': datetime.now().isoformat()
-                    })
+            self.logger.info(f"⚙️  Processing configuration batch {batch_num}/{total_batches} ({len(batch)} devices)")
+            
+            # Process this batch in parallel (10 workers for the batch)
+            with futures.ThreadPoolExecutor(max_workers=10) as executor:
+                future_to_device = {
+                    executor.submit(self._configure_single_device, device, firmware_version): device 
+                    for device in batch
+                }
+                
+                for future in futures.as_completed(future_to_device):
+                    device = future_to_device[future]
+                    try:
+                        result = future.result()
+                        result['device'] = f"{device['room']} ({device['ip']})"
+                        results.append(result)
+                    except Exception as e:
+                        results.append({
+                            'device': f"{device['room']} ({device['ip']})",
+                            'ip': device['ip'],
+                            'status': 'error',
+                            'message': f'Configuration failed: {str(e)}',
+                            'timestamp': datetime.now().isoformat()
+                        })
         
-        self.logger.info(f"Configuration completed. Success: {sum(1 for r in results if r['status'] == 'success')}, Failed: {sum(1 for r in results if r['status'] == 'error')}")
+        success_count = sum(1 for r in results if r['status'] == 'success')
+        failed_count = sum(1 for r in results if r['status'] == 'error')
+        
+        self.logger.info(f"✅ Configuration completed. Success: {success_count}, Failed: {failed_count}")
         
         return {
             "status": "success",
             "results": results,
             "summary": {
                 "total": len(results),
-                "success": sum(1 for r in results if r['status'] == 'success'),
-                "failed": sum(1 for r in results if r['status'] == 'error')
+                "success": success_count,
+                "failed": failed_count
             }
         }
     
@@ -569,35 +581,46 @@ class CCTVToolsService:
             }
     
     def check_device_status(self, devices: List[Dict]) -> Dict:
-        """Check status of multiple CCTV devices"""
+        """Check status of multiple CCTV devices in batches of 10"""
         if not REQUESTS_AVAILABLE:
             return {"status": "error", "message": "Requests library not available"}
         
-        self.logger.info(f"Checking status for {len(devices)} devices")
+        self.logger.info(f"🔍 Checking status for {len(devices)} devices (10 at a time)")
         
         results = []
+        BATCH_SIZE = 10
         
-        # Use thread pool for concurrent status checks (5 workers like old Flask version)
-        with futures.ThreadPoolExecutor(max_workers=5) as executor:
-            future_to_device = {
-                executor.submit(self._check_single_device_status, device): device 
-                for device in devices
-            }
+        # Process devices in batches of 10
+        for i in range(0, len(devices), BATCH_SIZE):
+            batch = devices[i:i + BATCH_SIZE]
+            batch_num = (i // BATCH_SIZE) + 1
+            total_batches = (len(devices) + BATCH_SIZE - 1) // BATCH_SIZE
             
-            for future in futures.as_completed(future_to_device):
-                device = future_to_device[future]
-                try:
-                    result = future.result()
-                    result['device'] = f"{device['room']} ({device['ip']})"
-                    results.append(result)
-                except Exception as e:
-                    results.append({
-                        'device': f"{device['room']} ({device['ip']})",
-                        'ip': device['ip'],
-                        'status': 'error',
-                        'message': f'Status check failed: {str(e)}',
-                        'timestamp': datetime.now().isoformat()
-                    })
+            self.logger.info(f"📊 Processing batch {batch_num}/{total_batches} ({len(batch)} devices)")
+            
+            # Process this batch in parallel (10 workers for the batch)
+            with futures.ThreadPoolExecutor(max_workers=10) as executor:
+                future_to_device = {
+                    executor.submit(self._check_single_device_status, device): device 
+                    for device in batch
+                }
+                
+                for future in futures.as_completed(future_to_device):
+                    device = future_to_device[future]
+                    try:
+                        result = future.result()
+                        result['device'] = f"{device['room']} ({device['ip']})"
+                        results.append(result)
+                    except Exception as e:
+                        results.append({
+                            'device': f"{device['room']} ({device['ip']})",
+                            'ip': device['ip'],
+                            'status': 'error',
+                            'message': f'Status check failed: {str(e)}',
+                            'timestamp': datetime.now().isoformat()
+                        })
+        
+        self.logger.info(f"✅ Status check completed for {len(results)} devices")
         
         return {
             "status": "success",

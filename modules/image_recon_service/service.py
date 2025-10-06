@@ -313,13 +313,14 @@ class ImageReconServiceManager:
             successful_checks = 0
             failed_checks = 0
             
+            logger.info(f"🔍 Checking versions on {len(servers)} servers")
+            
             for server in servers:
-                result = self.check_service_status([server])
-                if result and len(result) > 0:
-                    server_result = result[0]
-                    version = server_result.get('version', 'N/A')
+                try:
+                    # Get version directly using _get_server_version
+                    version = self._get_server_version(server.get('ip'), server.get('hostname', 'Unknown'))
                     
-                    if version and version != 'N/A' and version != 'Error':
+                    if version and version != 'N/A' and version != 'Error' and version != 'Offline':
                         successful_checks += 1
                         version_results.append({
                             'success': True,
@@ -328,16 +329,29 @@ class ImageReconServiceManager:
                             'version': version,
                             'status': 'Version found'
                         })
+                        logger.info(f"✅ {server.get('hostname')}: {version}")
                     else:
                         failed_checks += 1
                         version_results.append({
                             'success': False,
                             'hostname': server.get('hostname', 'Unknown'),
                             'ip': server.get('ip', 'Unknown'),
-                            'version': version,
+                            'version': version or 'N/A',
                             'error': 'Version not found or error',
                             'status': 'Error'
                         })
+                        logger.warning(f"❌ {server.get('hostname')}: Version not found")
+                except Exception as e:
+                    failed_checks += 1
+                    version_results.append({
+                        'success': False,
+                        'hostname': server.get('hostname', 'Unknown'),
+                        'ip': server.get('ip', 'Unknown'),
+                        'version': 'N/A',
+                        'error': str(e),
+                        'status': 'Error'
+                    })
+                    logger.error(f"❌ {server.get('hostname')}: {str(e)}")
             
             # Send email report
             target_version = "Auto-Detect"
