@@ -198,15 +198,21 @@ async function loadServerVersions() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ server_ip: server.ip })
+                body: JSON.stringify({ 
+                    servers: [{
+                        ip: server.ip,
+                        hostname: server.hostname,
+                        label: server.label
+                    }]
+                })
             });
             
             const data = await response.json();
             const versionElement = document.getElementById(`version-${server.ip.replace(/\./g, '-')}`);
             
             if (versionElement) {
-                if (data.status === 'success') {
-                    versionElement.textContent = data.version || 'Unknown';
+                if (data.status === 'success' && data.results && data.results[0]) {
+                    versionElement.textContent = data.results[0].version || 'Unknown';
                 } else {
                     versionElement.textContent = server.status === 'development' ? 'Dev v1.0.0' : 'Unknown';
                 }
