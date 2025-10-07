@@ -3,6 +3,7 @@ import os
 import csv
 import re
 import tempfile
+import logging
 from typing import Dict, List, Tuple
 from datetime import datetime
 try:
@@ -12,6 +13,9 @@ try:
 except ImportError:
     SSH_AVAILABLE = False
 from config import settings
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 class ImageReconJsonService:
     def __init__(self):
@@ -265,32 +269,90 @@ class ImageReconJsonService:
             return {"status": "error", "message": f"Error reading file: {str(e)}"}
     
     def get_image_recon_servers(self) -> List[Dict]:
-        """Get list of server IPs from image-recon.json"""
-        json_file_path = '/opt/compose-conf/prometheus/config/conf.d/node/image-recon.json'
+        """Get list of server IPs from image-recon.json (same as Image Recon Service)"""
+        # Try multiple possible paths for the image-recon.json file
+        json_file_paths = [
+            '/opt/compose-conf/prometheus/config/conf.d/node/image-recon.json',
+            '/opt/compose-conf/prometheus/image-recon.json',
+            '/opt/compose-conf/image-recon.json',
+            os.path.join(settings.TYPE_DIR, 'ir.json')  # Fallback for local dev
+        ]
+        
+        for json_file_path in json_file_paths:
+            if not os.path.exists(json_file_path):
+                logger.info(f"⏭️  Skipping (not found): {json_file_path}")
+                continue
+        
+            try:
+                with open(json_file_path, 'r') as f:
+                    data = json.load(f)
+            
+                servers = []
+                if isinstance(data, list):
+                    for item in data:
+                        targets = item.get('targets', [])
+                        for target in targets:
+                            ip = target.split(':')[0]
+                            hostname = item.get('labels', {}).get('hostname', 'Unknown Host')
+                            label = hostname.split('-')[0]
+                        
+                            # Filter out SRS servers
+                            if label.upper() != 'SRS':
+                                servers.append({
+                                    "ip": ip,
+                                    "hostname": hostname,
+                                    "label": label
+                                })
+            
+                logger.info(f"✅ Loaded {len(servers)} servers from: {json_file_path}")
+                return servers
+            except Exception as e:
+                logger.error(f"❌ Error reading {json_file_path}: {e}")
+                continue
+        
+        # If no config files found, use mock data for local development
+        logger.warning("⚠️ No config files found in any location - using mock data for development")
+        return self._get_mock_servers()
+    
+    def _get_mock_servers(self) -> List[Dict]:
+        """Return mock server data for development/testing"""
+        return [
+            {"ip": "10.100.1.10", "hostname": "NP-1", "label": "NP"},
+            {"ip": "10.100.1.11", "hostname": "NP-2", "label": "NP"},
+            {"ip": "10.100.2.10", "hostname": "TW-1", "label": "TW"},
+            {"ip": "10.100.2.11", "hostname": "TW-2", "label": "TW"},
+        ]
+    
+    def fetch_file_from_server(self, server_ip: str, remote_file_path: str) -> str:
+        """Fetch file content from server via SSH"""
+        if not SSH_AVAILABLE:
+            raise Exception("SSH functionality not available. Install paramiko and scp packages.")
         
         try:
-            with open(json_file_path, 'r') as f:
-                data = json.load(f)
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             
-            servers = []
-            if isinstance(data, list):
-                for item in data:
-                    targets = item.get('targets', [])
-                    for target in targets:
-                        ip = target.split(':')[0]
-                        hostname = item.get('labels', {}).get('hostname', 'Unknown Host')
-                        label = hostname.split('-')[0]
-                        
-                        if label.upper() != 'SRS':
-                            servers.append({
-                                "ip": ip,
-                                "hostname": hostname,
-                                "label": label
-                            })
+            if not os.path.exists(settings.SSH_KEY_PATH):
+                raise ValueError(f"Private key file does not exist at path: {settings.SSH_KEY_PATH}")
             
-            return servers
-        except Exception:
-            return []
+            private_key = paramiko.RSAKey.from_private_key_file(settings.SSH_KEY_PATH)
+            ssh.connect(server_ip, username=settings.SSH_USERNAME, pkey=private_key, timeout=30)
+            
+            # Execute cat command to read file
+            stdin, stdout, stderr = ssh.exec_command(f'cat {remote_file_path}')
+            content = stdout.read().decode('utf-8')
+            error = stderr.read().decode('utf-8')
+            
+            ssh.close()
+            
+            if error and 'No such file or directory' in error:
+                raise Exception(f"File not found: {remote_file_path}")
+            elif error:
+                raise Exception(f"Error reading file: {error}")
+            
+            return content
+        except Exception as e:
+            raise Exception(f"Failed to fetch file from {server_ip}: {str(e)}")
     
     def send_file_to_server(self, server_ip: str, local_file_path: str, remote_file_path: str) -> Tuple[bool, str]:
         """Send file to server using SCP"""

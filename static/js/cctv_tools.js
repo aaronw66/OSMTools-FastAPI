@@ -684,12 +684,14 @@ function renderConfigDeviceTable() {
                 <td>${device.build_date || ''}</td>
                 <td><span class="status-badge ${statusClass}">${device.status || 'ONLINE'}</span></td>
                 <td>
-                    <button class="btn-configure" onclick="configureSingleDevice('${device.ip}', ${index})">
-                        <i class="fas fa-cog"></i> CONFIGURE
-                    </button>
-                    <button class="btn-reboot" onclick="rebootSingleDevice('${device.ip}')">
-                        <i class="fas fa-power-off"></i> REBOOT
-                    </button>
+                    <div class="device-actions">
+                        <button class="btn-configure" onclick="configureSingleDevice('${device.ip}', ${index})">
+                            CONFIGURE
+                        </button>
+                        <button class="btn-reboot" onclick="rebootSingleDevice('${device.ip}')">
+                            REBOOT
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -737,13 +739,15 @@ function renderFirmwareDeviceTable() {
                 <td>${device.model || 'Unknown'}</td>
                 <td><span class="status-badge ${statusClass}">${device.status}</span></td>
                 <td class="action-cell">
-                    <button class="action-btn update-btn" onclick="updateSingleFirmware(${index})" 
-                            ${device.status !== 'READY' ? 'disabled' : ''}>
-                        <i class="fas fa-upload"></i> UPDATE
-                    </button>
-                    <button class="action-btn reboot-btn" onclick="rebootSingleDeviceFromFirmwareModal(${index})">
-                        <i class="fas fa-power-off"></i> REBOOT
-                    </button>
+                    <div class="device-actions">
+                        <button class="btn-update-firmware" onclick="updateSingleFirmware(${index})" 
+                                ${device.status !== 'READY' ? 'disabled' : ''}>
+                            UPDATE
+                        </button>
+                        <button class="btn-reboot" onclick="rebootSingleDeviceFromFirmwareModal(${index})">
+                            REBOOT
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;

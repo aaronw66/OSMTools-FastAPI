@@ -51,16 +51,34 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Health check
-    checkHealth();
+    // Load system stats
+    loadSystemStats();
+    
+    // Refresh stats every 5 seconds
+    setInterval(loadSystemStats, 5000);
 });
 
-async function checkHealth() {
+async function loadSystemStats() {
     try {
-        const response = await fetch('/health');
+        const response = await fetch('/api/system-stats');
         const data = await response.json();
-        console.log('System Status:', data);
+        
+        // Update CPU
+        document.getElementById('cpuUsage').textContent = data.cpu.display;
+        document.getElementById('cpuUsage').style.color = data.cpu.percent > 80 ? '#ff7b72' : '#58a6ff';
+        
+        // Update RAM
+        document.getElementById('ramUsage').textContent = data.ram.display;
+        document.getElementById('ramUsage').style.color = data.ram.percent > 80 ? '#ff7b72' : '#58a6ff';
+        
+        // Update Disk
+        document.getElementById('diskUsage').textContent = data.disk.display;
+        document.getElementById('diskUsage').style.color = data.disk.percent > 80 ? '#ff7b72' : '#58a6ff';
+        
     } catch (error) {
-        console.warn('Health check failed:', error);
+        console.warn('Failed to load system stats:', error);
+        document.getElementById('cpuUsage').textContent = 'N/A';
+        document.getElementById('ramUsage').textContent = 'N/A';
+        document.getElementById('diskUsage').textContent = 'N/A';
     }
 }

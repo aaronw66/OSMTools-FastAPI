@@ -1,9 +1,116 @@
 /* Image Recon JSON Specific Styles */
 
-/* Moderate width modal for Image Recon JSON */
-.modal-content {
-    max-width: 800px !important;
-    width: 90% !important;
+/* Two-column layout */
+.two-column-layout {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.left-column {
+    min-width: 0; /* Prevent grid blowout */
+}
+
+.right-column {
+    position: sticky;
+    top: 80px;
+    height: fit-content;
+    max-height: calc(100vh - 100px);
+}
+
+/* Cards in the layout */
+.left-column .card {
+    margin-bottom: 20px;
+}
+
+/* Game Types Reference Card */
+.reference-card {
+    background: linear-gradient(135deg, #1a1f2e 0%, #2d3748 100%);
+    border: 1px solid #4a5568;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.reference-card h2 {
+    color: #7ee787;
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #4a5568;
+}
+
+.game-types-list {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+/* Custom scrollbar for game types list */
+.game-types-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.game-types-list::-webkit-scrollbar-track {
+    background: #1a1f2e;
+    border-radius: 4px;
+}
+
+.game-types-list::-webkit-scrollbar-thumb {
+    background: #4a5568;
+    border-radius: 4px;
+}
+
+.game-types-list::-webkit-scrollbar-thumb:hover {
+    background: #5a6578;
+}
+
+.game-type-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    border-left: 3px solid #7ee787;
+    transition: all 0.2s ease;
+}
+
+.game-type-item:hover {
+    background: rgba(126, 231, 135, 0.1);
+    transform: translateX(3px);
+    box-shadow: 0 2px 4px rgba(126, 231, 135, 0.2);
+}
+
+.game-type-name {
+    font-weight: 600;
+    color: #e6edf3;
+    font-size: 0.95rem;
+}
+
+.game-type-id {
+    background: #7ee787;
+    color: #0d1117;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    min-width: 35px;
+    text-align: center;
+}
+
+.game-type-id.unknown-id {
+    background: #f85149;
+    color: white;
+}
+
+/* Override modal width to match Flask version */
+#serverModal .modal-content,
+#resultsModal .modal-content {
+    max-width: 650px !important;
+    width: 650px !important;
+    margin: 5% auto !important;
 }
 
 .machine-type-actions {
@@ -263,6 +370,87 @@
 
 .status-pending {
     background: #d29922;
+}
+
+/* Edit JSON Modal Specific Styles */
+#editJsonModal {
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+#editJsonModal[style*="display: block"] {
+    display: flex !important;
+}
+
+#editJsonModal .modal-content {
+    max-width: 95% !important;
+    width: 95% !important;
+    height: 90vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: #161b22 !important;
+    border: 1px solid #3a3f52 !important;
+    margin: 0 !important;
+    border-radius: 12px !important;
+}
+
+#editJsonModal .modal-header {
+    background: #161b22 !important;
+    border-bottom: 1px solid #3a3f52 !important;
+    color: #c9d1d9 !important;
+}
+
+#editJsonModal .modal-header h3 {
+    color: #c9d1d9 !important;
+}
+
+#editJsonModal .modal-body {
+    display: flex !important;
+    gap: 20px !important;
+    padding: 20px !important;
+    flex: 1 !important;
+    overflow: hidden !important;
+    max-height: none !important;
+    background: #161b22 !important;
+}
+
+#editJsonModal .modal-footer {
+    background: #161b22 !important;
+    border-top: 1px solid #3a3f52 !important;
+}
+
+#editJsonModal #jsonEditor {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    background: #0d1117;
+    color: #d4d4d4;
+    border: 1px solid #3a3f52;
+    border-radius: 6px;
+    padding: 15px;
+    resize: none;
+    flex: 1;
+    min-height: 0;
+}
+
+#editJsonModal #jsonEditor:focus {
+    outline: none;
+    border-color: #8b949e;
+    box-shadow: 0 0 0 3px rgba(139, 148, 158, 0.1);
+}
+
+#editJsonStatus {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+#editJsonStatus p {
+    margin: 0;
+    padding: 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
 }
 
 /* Responsive adjustments */

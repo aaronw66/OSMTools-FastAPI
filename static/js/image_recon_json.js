@@ -2,6 +2,10 @@
 
 let generatedJsonContent = '';
 let availableServers = [];
+let editServers = [];
+let currentEditServer = null;
+let currentJsonData = null;
+let showingRawJson = false;
 
 document.addEventListener('DOMContentLoaded', function() {
     initializeImageReconJson();
@@ -9,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function initializeImageReconJson() {
     await loadMachineTypes();
+    await loadGameTypes();
     setupEventListeners();
 }
 
@@ -208,6 +213,7 @@ async function handleAddMachineType(event) {
             CommonUtils.showAlert(result.message, 'success');
             form.reset();
             await loadMachineTypes(); // Reload machine types
+            await loadGameTypes(); // Reload game types reference
         } else {
             throw new Error(result.message || 'Failed to add machine type');
         }
@@ -246,6 +252,7 @@ async function handleRemoveMachineType(event) {
             CommonUtils.showAlert(result.message, 'success');
             form.reset();
             await loadMachineTypes(); // Reload machine types
+            await loadGameTypes(); // Reload game types reference
         } else {
             throw new Error(result.message || 'Failed to remove machine type');
         }
@@ -413,6 +420,367 @@ function closeResultsModal() {
     CommonUtils.closeModal('resultsModal');
 }
 
+// Load and display game types reference with machine types
+async function loadGameTypes() {
+    try {
+        const [gameTypesResponse, machineTypesResponse] = await Promise.all([
+            fetch('/type/game_types.json'),
+            fetch('/type/machine_types.json')
+        ]);
+        
+        const gameTypes = await gameTypesResponse.json();
+        const machineTypes = await machineTypesResponse.json();
+        
+        const gameTypesList = document.getElementById('gameTypesList');
+        
+        // Get list of active machine types
+        const activeMachines = Object.keys(machineTypes).filter(key => machineTypes[key]);
+        
+        // Create a list of active machines with their game type IDs
+        const machineGameTypes = activeMachines
+            .map(name => ({
+                name: name,
+                id: gameTypes[name] !== undefined ? gameTypes[name] : '?'
+            }))
+            .sort((a, b) => {
+                // Sort by ID, put unknowns at the end
+                if (a.id === '?') return 1;
+                if (b.id === '?') return -1;
+                return a.id - b.id;
+            });
+        
+        const gameTypesHTML = machineGameTypes.map(({ name, id }) => `
+            <div class="game-type-item">
+                <span class="game-type-name">${name}</span>
+                <span class="game-type-id ${id === '?' ? 'unknown-id' : ''}">${id}</span>
+            </div>
+        `).join('');
+        
+        gameTypesList.innerHTML = gameTypesHTML || '<p style="color: #8b949e; text-align: center;">No machine types configured</p>';
+    } catch (error) {
+        console.error('Error loading game types:', error);
+        document.getElementById('gameTypesList').innerHTML = 
+            '<p style="color: #ff7b72; text-align: center;">Failed to load game types</p>';
+    }
+}
+
+// ============================================================================
+// EDIT JSON MODAL FUNCTIONS
+// ============================================================================
+
+async function showEditJsonModal() {
+    try {
+        // Load available servers
+        const response = await CommonUtils.apiRequest('/image-recon-json/get-servers-for-send');
+        
+        if (response.status === 'success') {
+            editServers = response.servers;
+            
+            // Render server list on the left
+            renderServerList();
+            
+            // Clear editor and status
+            document.getElementById('jsonEditor').value = '';
+            document.getElementById('editJsonStatus').innerHTML = '';
+            document.getElementById('machineListContainer').style.display = 'none';
+            document.getElementById('rawJsonContainer').style.display = 'none';
+            
+            // Show modal
+            document.getElementById('editJsonModal').style.display = 'block';
+        } else {
+            throw new Error(response.message || 'Failed to load servers');
+        }
+    } catch (error) {
+        console.error('Failed to load servers:', error);
+        CommonUtils.showAlert(`Failed to load servers: ${error.message}`, 'error');
+    }
+}
+
+function renderServerList() {
+    const container = document.getElementById('serverListContainer');
+    
+    if (!editServers || editServers.length === 0) {
+        container.innerHTML = '<p style="color: #8b949e; text-align: center; padding: 20px;">No servers found</p>';
+        return;
+    }
+    
+    let html = '';
+    editServers.forEach(server => {
+        html += `
+            <div class="server-list-item" onclick="selectServerForEdit('${server.ip}')" 
+                 style="padding: 12px; margin-bottom: 8px; border: 1px solid #21262d; border-radius: 6px; cursor: pointer; transition: all 0.2s;"
+                 onmouseover="this.style.background='#161b22'; this.style.borderColor='#8b949e';" 
+                 onmouseout="this.style.background='transparent'; this.style.borderColor='#21262d';"
+                 data-server-ip="${server.ip}">
+                <div style="font-weight: 600; color: #c9d1d9; font-size: 14px; margin-bottom: 4px;">${server.label}</div>
+                <div style="color: #8b949e; font-size: 12px;">${server.hostname}</div>
+                <div style="color: #6e7681; font-size: 11px; font-family: monospace; margin-top: 4px;">${server.ip}</div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function selectServerForEdit(serverIp) {
+    // Highlight selected server
+    document.querySelectorAll('.server-list-item').forEach(item => {
+        if (item.getAttribute('data-server-ip') === serverIp) {
+            item.style.background = '#161b22';
+            item.style.borderColor = '#8b949e';
+        } else {
+            item.style.background = 'transparent';
+            item.style.borderColor = '#21262d';
+        }
+    });
+    
+    // Load JSON from this server
+    currentEditServer = serverIp;
+    loadJsonFromServerByIp(serverIp);
+}
+
+async function loadJsonFromServerByIp(serverIp) {
+    const remotePath = document.getElementById('editRemotePath').value;
+    const statusDiv = document.getElementById('editJsonStatus');
+    const editor = document.getElementById('jsonEditor');
+    const machineListContainer = document.getElementById('machineListContainer');
+    const rawJsonContainer = document.getElementById('rawJsonContainer');
+    
+    if (!serverIp) {
+        editor.value = '';
+        statusDiv.innerHTML = '';
+        machineListContainer.style.display = 'none';
+        rawJsonContainer.style.display = 'none';
+        return;
+    }
+    
+    statusDiv.innerHTML = '<p style="color: #58a6ff;">🔄 Loading JSON from server...</p>';
+    editor.value = '';
+    machineListContainer.style.display = 'none';
+    rawJsonContainer.style.display = 'none';
+    
+    try {
+        const response = await CommonUtils.apiRequest('/image-recon-json/fetch-json-from-server', {
+            method: 'POST',
+            body: JSON.stringify({
+                server_ip: serverIp,
+                remote_path: remotePath
+            })
+        });
+        
+        if (response.status === 'success') {
+            // Parse and store the JSON data
+            currentJsonData = JSON.parse(response.content);
+            const prettyJson = JSON.stringify(currentJsonData, null, 2);
+            editor.value = prettyJson;
+            currentEditServer = serverIp;
+            
+            // Show machine list view by default
+            showingRawJson = false;
+            renderMachineList();
+            machineListContainer.style.display = 'flex';
+            
+            const machineCount = countMachines(currentJsonData);
+            statusDiv.innerHTML = `<p style="color: #3fb950;">✅ Loaded ${machineCount} machines from ${serverIp}</p>`;
+        } else {
+            throw new Error(response.message || 'Failed to fetch JSON');
+        }
+    } catch (error) {
+        console.error('Failed to load JSON:', error);
+        statusDiv.innerHTML = `<p style="color: #ff7b72;">❌ Error: ${error.message}</p>`;
+        editor.value = '';
+    }
+}
+
+function countMachines(jsonData) {
+    let count = 0;
+    if (jsonData && jsonData.pool) {
+        jsonData.pool.forEach(pool => {
+            if (pool.gamelist) {
+                count += pool.gamelist.length;
+            }
+        });
+    }
+    return count;
+}
+
+function renderMachineList() {
+    const container = document.getElementById('machineListTable');
+    
+    if (!currentJsonData || !currentJsonData.pool) {
+        container.innerHTML = '<p style="padding: 20px; color: #8b949e; text-align: center;">No machines found</p>';
+        return;
+    }
+    
+    let html = '<table style="width: 100%; border-collapse: collapse;">';
+    html += '<thead style="position: sticky; top: 0; background: #161b22; z-index: 10;">';
+    html += '<tr style="border-bottom: 2px solid #3a3f52;">';
+    html += '<th style="padding: 12px; text-align: left; color: #58a6ff; font-weight: 600;">Machine ID</th>';
+    html += '<th style="padding: 12px; text-align: left; color: #58a6ff; font-weight: 600;">Pool ID</th>';
+    html += '<th style="padding: 12px; text-align: left; color: #58a6ff; font-weight: 600;">Type</th>';
+    html += '<th style="padding: 12px; text-align: left; color: #58a6ff; font-weight: 600;">Stream ID</th>';
+    html += '<th style="padding: 12px; text-align: center; color: #58a6ff; font-weight: 600; width: 100px;">Action</th>';
+    html += '</tr>';
+    html += '</thead>';
+    html += '<tbody>';
+    
+    currentJsonData.pool.forEach((pool, poolIndex) => {
+        if (pool.gamelist && pool.gamelist.length > 0) {
+            pool.gamelist.forEach((machine, machineIndex) => {
+                html += '<tr style="border-bottom: 1px solid #21262d;" onmouseover="this.style.background=\'#21262d\'" onmouseout="this.style.background=\'transparent\'">';
+                html += `<td style="padding: 12px; color: #c9d1d9; font-family: monospace; font-size: 13px;">${machine.id || 'N/A'}</td>`;
+                html += `<td style="padding: 12px; color: #8b949e;">${pool.id || 'N/A'}</td>`;
+                html += `<td style="padding: 12px; color: #8b949e;">${pool.type || 'N/A'}</td>`;
+                html += `<td style="padding: 12px; color: #8b949e; font-family: monospace; font-size: 12px;">${machine.sId || 'N/A'}</td>`;
+                html += `<td style="padding: 12px; text-align: center;">`;
+                html += `<button onclick="deleteMachine(${poolIndex}, ${machineIndex})" class="btn-delete-machine" style="background: linear-gradient(135deg, #da3633 0%, #b02a28 100%); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(218, 54, 51, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">`;
+                html += `<i class="fas fa-trash"></i> Delete`;
+                html += `</button>`;
+                html += `</td>`;
+                html += '</tr>';
+            });
+        }
+    });
+    
+    html += '</tbody>';
+    html += '</table>';
+    
+    container.innerHTML = html;
+}
+
+function deleteMachine(poolIndex, machineIndex) {
+    if (!confirm('Are you sure you want to delete this machine?')) {
+        return;
+    }
+    
+    // Remove the machine from the data
+    currentJsonData.pool[poolIndex].gamelist.splice(machineIndex, 1);
+    
+    // If pool is now empty, remove the pool
+    if (currentJsonData.pool[poolIndex].gamelist.length === 0) {
+        currentJsonData.pool.splice(poolIndex, 1);
+    }
+    
+    // Update the raw JSON editor
+    document.getElementById('jsonEditor').value = JSON.stringify(currentJsonData, null, 2);
+    
+    // Re-render the machine list
+    renderMachineList();
+    
+    // Update status
+    const machineCount = countMachines(currentJsonData);
+    document.getElementById('editJsonStatus').innerHTML = 
+        `<p style="color: #f0883e;">⚠️ Machine deleted. ${machineCount} machines remaining. Click "Save to Server" to apply changes.</p>`;
+}
+
+function toggleJsonView() {
+    const machineListContainer = document.getElementById('machineListContainer');
+    const rawJsonContainer = document.getElementById('rawJsonContainer');
+    
+    if (showingRawJson) {
+        // Switch to machine list view
+        // First, try to parse any changes made in raw JSON
+        try {
+            const rawJson = document.getElementById('jsonEditor').value;
+            currentJsonData = JSON.parse(rawJson);
+            renderMachineList();
+        } catch (e) {
+            alert('Invalid JSON! Please fix the syntax errors before switching views.');
+            return;
+        }
+        machineListContainer.style.display = 'flex';
+        rawJsonContainer.style.display = 'none';
+        showingRawJson = false;
+    } else {
+        // Switch to raw JSON view
+        // Update the editor with current data
+        document.getElementById('jsonEditor').value = JSON.stringify(currentJsonData, null, 2);
+        machineListContainer.style.display = 'none';
+        rawJsonContainer.style.display = 'flex';
+        showingRawJson = true;
+    }
+}
+
+async function saveJsonToServer() {
+    const serverIp = currentEditServer;
+    const remotePath = document.getElementById('editRemotePath').value;
+    const statusDiv = document.getElementById('editJsonStatus');
+    
+    if (!serverIp) {
+        CommonUtils.showAlert('Please select a server first', 'error');
+        return;
+    }
+    
+    // Get the current JSON content (either from currentJsonData or raw editor)
+    let jsonContent;
+    if (showingRawJson) {
+        jsonContent = document.getElementById('jsonEditor').value;
+    } else {
+        jsonContent = JSON.stringify(currentJsonData, null, 2);
+    }
+    
+    if (!jsonContent.trim()) {
+        CommonUtils.showAlert('JSON content cannot be empty', 'error');
+        return;
+    }
+    
+    // Validate JSON
+    try {
+        JSON.parse(jsonContent);
+    } catch (e) {
+        CommonUtils.showAlert(`Invalid JSON: ${e.message}`, 'error');
+        return;
+    }
+    
+    statusDiv.innerHTML = '<p style="color: #58a6ff;">🔄 Saving JSON to server...</p>';
+    
+    try {
+        const response = await CommonUtils.apiRequest('/image-recon-json/send-json-to-servers', {
+            method: 'POST',
+            body: JSON.stringify({
+                json_content: jsonContent,
+                servers: [{ ip: serverIp }],
+                remote_path: remotePath
+            })
+        });
+        
+        if (response.status === 'success') {
+            const result = response.results[0];
+            if (result.success) {
+                const machineCount = countMachines(currentJsonData);
+                statusDiv.innerHTML = `<p style="color: #3fb950;">✅ Successfully saved ${machineCount} machines to ${serverIp}</p>`;
+                CommonUtils.showAlert('JSON saved successfully!', 'success');
+            } else {
+                throw new Error(result.message || 'Failed to save');
+            }
+        } else {
+            throw new Error(response.message || 'Failed to save JSON');
+        }
+    } catch (error) {
+        console.error('Failed to save JSON:', error);
+        statusDiv.innerHTML = `<p style="color: #ff7b72;">❌ Error: ${error.message}</p>`;
+        CommonUtils.showAlert(`Failed to save: ${error.message}`, 'error');
+    }
+}
+
+function closeEditJsonModal() {
+    const modal = document.getElementById('editJsonModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    currentEditServer = null;
+    currentJsonData = null;
+    showingRawJson = false;
+}
+
+// Close modal when clicking outside of it
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('editJsonModal');
+    if (event.target === modal) {
+        closeEditJsonModal();
+    }
+});
+
 // Export functions for global access
 window.ImageReconJson = {
     loadMachineTypes,
@@ -420,3 +788,11 @@ window.ImageReconJson = {
     handleDownloadJson,
     closeResultsModal
 };
+
+// Make edit functions globally accessible
+window.showEditJsonModal = showEditJsonModal;
+window.selectServerForEdit = selectServerForEdit;
+window.saveJsonToServer = saveJsonToServer;
+window.closeEditJsonModal = closeEditJsonModal;
+window.deleteMachine = deleteMachine;
+window.toggleJsonView = toggleJsonView;

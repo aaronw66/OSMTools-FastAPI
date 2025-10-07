@@ -216,3 +216,21 @@ async def send_json_to_servers(request: SendJsonRequest):
         return JSONResponse(content=result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/fetch-json-from-server")
+async def fetch_json_from_server(request: dict):
+    """Fetch JSON file from server via SSH"""
+    try:
+        server_ip = request.get('server_ip')
+        remote_path = request.get('remote_path', '/usr/bin/OSMWatcher/list.json')
+        
+        if not server_ip:
+            raise HTTPException(status_code=400, detail="server_ip is required")
+        
+        content = service.fetch_file_from_server(server_ip, remote_path)
+        return JSONResponse(content={"status": "success", "content": content})
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": str(e)}
+        )

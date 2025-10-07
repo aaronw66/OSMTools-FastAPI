@@ -824,6 +824,8 @@ body {
 }
 
 .config-device-table-container {
+    max-height: 500px;
+    overflow-y: auto;
     overflow-x: auto;
     margin-top: 20px;
     border-radius: 8px;
@@ -840,7 +842,7 @@ body {
     background: linear-gradient(135deg, #252b3d, #2d3548);
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: 10;
 }
 
 .config-device-table th {
@@ -865,15 +867,41 @@ body {
     background: rgba(91, 124, 255, 0.1);
 }
 
-.btn-configure, .btn-reboot {
-    padding: 6px 12px;
+/* Action buttons container - side by side */
+.device-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    align-items: center;
+}
+
+.btn-configure, .btn-reboot, .btn-update-firmware {
+    padding: 4px 10px;
+    font-size: 12px;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 12px;
     font-weight: 500;
-    margin-right: 8px;
+    white-space: nowrap;
     transition: all 0.3s ease;
+}
+
+.btn-update-firmware {
+    background: linear-gradient(135deg, #5b7cff, #4a63cc);
+    color: white;
+}
+
+.btn-update-firmware:hover:not(:disabled) {
+    background: linear-gradient(135deg, #6a8bff, #5a73dc);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(91, 124, 255, 0.3);
+}
+
+.btn-update-firmware:disabled {
+    background: #3a3f52;
+    color: #6b7280;
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
 .btn-configure {

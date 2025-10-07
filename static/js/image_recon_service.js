@@ -560,7 +560,7 @@ async function refreshEmailSettings() {
 function displayEmailRecipients() {
     const recipientsList = document.getElementById('recipientsList');
     
-    if (!emailConfig.recipients || emailConfig.recipients.length === 0) {
+    if (!emailConfig || !emailConfig.recipients || emailConfig.recipients.length === 0) {
         recipientsList.innerHTML = '<p style="color: #8b949e; text-align: center;">No recipients configured</p>';
         return;
     }

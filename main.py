@@ -33,6 +33,7 @@ app.add_middleware(
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/type", StaticFiles(directory="type"), name="type")
 
 # Templates
 templates = Jinja2Templates(directory="templates")
@@ -45,15 +46,58 @@ app.include_router(osmachine_router, prefix="/osmachine", tags=["OSMachine"])
 app.include_router(config_editor_router, prefix="/config-editor", tags=["Config Editor"])
 
 @app.get("/")
-async def home():
-    """Redirect to first tool"""
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/image-recon-json", status_code=302)
+async def home(request: Request):
+    """Show dashboard"""
+    return templates.TemplateResponse("dashboard.html", {"request": request})
+
+@app.get("/dashboard")
+async def dashboard(request: Request):
+    """Dashboard page"""
+    return templates.TemplateResponse("dashboard.html", {"request": request})
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "version": "2.0.0"}
+
+@app.get("/api/system-stats")
+async def get_system_stats():
+    """Get system resource usage statistics"""
+    import psutil
+    
+    # CPU usage
+    cpu_percent = psutil.cpu_percent(interval=1)
+    
+    # RAM usage
+    ram = psutil.virtual_memory()
+    ram_percent = ram.percent
+    ram_used_gb = ram.used / (1024**3)
+    ram_total_gb = ram.total / (1024**3)
+    
+    # Disk usage
+    disk = psutil.disk_usage('/')
+    disk_percent = disk.percent
+    disk_used_gb = disk.used / (1024**3)
+    disk_total_gb = disk.total / (1024**3)
+    
+    return {
+        "cpu": {
+            "percent": round(cpu_percent, 1),
+            "display": f"{cpu_percent:.1f}%"
+        },
+        "ram": {
+            "percent": round(ram_percent, 1),
+            "used_gb": round(ram_used_gb, 1),
+            "total_gb": round(ram_total_gb, 1),
+            "display": f"{ram_used_gb:.1f}GB / {ram_total_gb:.1f}GB"
+        },
+        "disk": {
+            "percent": round(disk_percent, 1),
+            "used_gb": round(disk_used_gb, 1),
+            "total_gb": round(disk_total_gb, 1),
+            "display": f"{disk_used_gb:.0f}GB / {disk_total_gb:.0f}GB"
+        }
+    }
 
 if __name__ == "__main__":
     import uvicorn
