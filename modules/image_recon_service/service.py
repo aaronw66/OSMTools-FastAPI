@@ -133,11 +133,11 @@ class ImageReconServiceManager:
                                 "status": "unknown"
                             })
             
-                        print(f"✅ Loaded {len(servers)} servers from: {json_file_path}")
+                print(f"✅ Loaded {len(servers)} servers from: {json_file_path}")
             return servers
         except Exception as e:
-                        print(f"❌ Error reading {json_file_path}: {e}")
-                        continue
+                print(f"❌ Error reading {json_file_path}: {e}")
+                continue
         
         # If no config files found, use mock data
         print("⚠️ No config files found in any location - using mock data for development")
