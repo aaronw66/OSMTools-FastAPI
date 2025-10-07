@@ -1,9 +1,15 @@
 /* Image Recon Service Specific Styles - Dark Theme */
 
+/* Prevent scrolling on Image Recon page */
+body {
+    overflow: hidden !important;
+    height: 100vh;
+}
+
 /* Search Container - Fixed at top */
 .search-container {
     position: fixed;
-    top: 70px;
+    top: 60px;
     left: 0;
     right: 0;
     z-index: 999;
@@ -131,8 +137,10 @@
 
 /* Content adjustments for fixed search */
 .main-container {
-    padding-top: 130px; /* Navbar (70px) + Search bar (60px) - no gap */
-    padding-bottom: 40px;
+    padding-top: 120px; /* Navbar (60px) + Search bar (60px) */
+    padding-bottom: 20px;
+    height: calc(100vh - 60px);
+    overflow-y: auto;
 }
 
 .content-header {

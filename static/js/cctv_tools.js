@@ -1014,6 +1014,46 @@ function closeConfigurationModal() {
     document.getElementById('configurationModal').style.display = 'none';
 }
 
+async function refreshConfigStatus() {
+    if (!uploadedDevices || uploadedDevices.length === 0) {
+        showAlert('No devices loaded', 'error');
+        return;
+    }
+    
+    const refreshBtn = event.target.closest('button');
+    const originalHTML = refreshBtn.innerHTML;
+    refreshBtn.disabled = true;
+    refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+    
+    try {
+        // Re-check device status
+        const response = await fetch('/cctv-tools/prepare-configuration', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ devices: uploadedDevices })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            // Update the device list with new status
+            window.configDevices = data.devices;
+            renderConfigDeviceTable(data.devices);
+            showAlert('Status refreshed successfully!', 'success');
+        } else {
+            showAlert(data.message || 'Failed to refresh status', 'error');
+        }
+    } catch (error) {
+        console.error('Error refreshing status:', error);
+        showAlert('Error refreshing status: ' + error.message, 'error');
+    } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.innerHTML = originalHTML;
+    }
+}
+
 function closeAllModals() {
     const modals = ['progressModal', 'resultsModal', 'configurationModal'];
     modals.forEach(modalId => {

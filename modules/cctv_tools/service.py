@@ -196,25 +196,25 @@ class CCTVToolsService:
             
             # Process this batch in parallel (10 workers for the batch)
             with futures.ThreadPoolExecutor(max_workers=10) as executor:
-                future_to_device = {
-                    executor.submit(self._configure_single_device, device, firmware_version): device 
+            future_to_device = {
+                executor.submit(self._configure_single_device, device, firmware_version): device 
                     for device in batch
-                }
-                
-                for future in futures.as_completed(future_to_device):
-                    device = future_to_device[future]
-                    try:
-                        result = future.result()
-                        result['device'] = f"{device['room']} ({device['ip']})"
-                        results.append(result)
-                    except Exception as e:
-                        results.append({
-                            'device': f"{device['room']} ({device['ip']})",
-                            'ip': device['ip'],
-                            'status': 'error',
-                            'message': f'Configuration failed: {str(e)}',
-                            'timestamp': datetime.now().isoformat()
-                        })
+            }
+            
+            for future in futures.as_completed(future_to_device):
+                device = future_to_device[future]
+                try:
+                    result = future.result()
+                    result['device'] = f"{device['room']} ({device['ip']})"
+                    results.append(result)
+                except Exception as e:
+                    results.append({
+                        'device': f"{device['room']} ({device['ip']})",
+                        'ip': device['ip'],
+                        'status': 'error',
+                        'message': f'Configuration failed: {str(e)}',
+                        'timestamp': datetime.now().isoformat()
+                    })
         
         success_count = sum(1 for r in results if r['status'] == 'success')
         failed_count = sum(1 for r in results if r['status'] == 'error')
@@ -433,8 +433,18 @@ class CCTVToolsService:
         """Send firmware file to device"""
         url = f"http://{ip}/digest/upload"
         
-        # Get device info first
+        # Get device info first (this will check if device is reachable)
         device_info = self._get_device_basic_info(ip, username, password)
+        
+        # Check if device is offline
+        if device_info.get("device_name") == "Offline":
+            return {
+                "ip": ip,
+                "status": "OFFLINE",
+                "error": "Device is offline or unreachable",
+                "device_name": "Offline",
+                "build_date": "Unknown"
+            }
         
         try:
             file_size = os.path.getsize(firmware_path)
@@ -461,6 +471,24 @@ class CCTVToolsService:
                     "device_name": device_info["device_name"],
                     "build_date": device_info["build_date"]
                 }
+        except requests.exceptions.ConnectionError as e:
+            self.logger.error(f"[{ip}] ❌ Device offline or unreachable: {e}")
+            return {
+                "ip": ip,
+                "status": "OFFLINE",
+                "error": "Device is offline or unreachable",
+                "device_name": device_info.get("device_name", "Offline"),
+                "build_date": device_info.get("build_date", "Unknown")
+            }
+        except requests.exceptions.Timeout as e:
+            self.logger.error(f"[{ip}] ❌ Connection timeout: {e}")
+            return {
+                "ip": ip,
+                "status": "TIMEOUT",
+                "error": "Connection timeout - device may be offline",
+                "device_name": device_info.get("device_name", "Unknown"),
+                "build_date": device_info.get("build_date", "Unknown")
+            }
         except Exception as e:
             self.logger.error(f"[{ip}] ❌ Firmware upload exception: {e}")
             return {
@@ -472,7 +500,7 @@ class CCTVToolsService:
             }
     
     def _get_device_basic_info(self, ip: str, username: str, password: str) -> Dict:
-        """Get basic device info (name, build date)"""
+        """Get basic device info (name, build date) - returns 'Offline' if device is unreachable"""
         device_info_url = f"http://{ip}/digest/frmGetFactoryInfo"
         payload = {"Type": 0, "Dev": 1, "Ch": 1, "Data": {}}
         
@@ -486,18 +514,27 @@ class CCTVToolsService:
                 try:
                     response = requests.post(device_info_url, json=payload, auth=auth, timeout=10)
                     if response.status_code == 200:
-                        data = response.json().get('Data', {})
-                        return {
-                            'device_name': data.get('DeviceName', 'Unknown'),
-                            'build_date': data.get('BuildDate', 'Unknown'),
-                            'model': data.get('Model', 'Unknown')
-                        }
+                        # Try to parse JSON response
+                        try:
+                            data = response.json().get('Data', {})
+                            return {
+                                'device_name': data.get('DeviceName', 'Unknown'),
+                                'build_date': data.get('BuildDate', 'Unknown'),
+                                'model': data.get('Model', 'Unknown')
+                            }
+                        except ValueError:
+                            # Response is not JSON (probably HTML error page)
+                            self.logger.warning(f"[{ip}] Device returned non-JSON response (HTML error page)")
+                            return {'device_name': 'Offline', 'build_date': 'Unknown', 'model': 'Unknown'}
+                except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+                    # Device is offline or unreachable
+                    return {'device_name': 'Offline', 'build_date': 'Unknown', 'model': 'Unknown'}
                 except Exception:
                     continue
         except Exception as e:
             self.logger.warning(f"[{ip}] Could not get device info: {e}")
         
-        return {'device_name': 'Unknown', 'build_date': 'Unknown', 'model': 'Unknown'}
+        return {'device_name': 'Offline', 'build_date': 'Unknown', 'model': 'Unknown'}
     
     def update_firmware(self, devices: List[Dict], firmware_version: str) -> Dict:
         """Update firmware on multiple CCTV devices"""
@@ -599,26 +636,26 @@ class CCTVToolsService:
             self.logger.info(f"📊 Processing batch {batch_num}/{total_batches} ({len(batch)} devices)")
             
             # Process this batch in parallel (10 workers for the batch)
-            with futures.ThreadPoolExecutor(max_workers=10) as executor:
-                future_to_device = {
-                    executor.submit(self._check_single_device_status, device): device 
+        with futures.ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_device = {
+                executor.submit(self._check_single_device_status, device): device 
                     for device in batch
-                }
-                
-                for future in futures.as_completed(future_to_device):
-                    device = future_to_device[future]
-                    try:
-                        result = future.result()
-                        result['device'] = f"{device['room']} ({device['ip']})"
-                        results.append(result)
-                    except Exception as e:
-                        results.append({
-                            'device': f"{device['room']} ({device['ip']})",
-                            'ip': device['ip'],
-                            'status': 'error',
-                            'message': f'Status check failed: {str(e)}',
-                            'timestamp': datetime.now().isoformat()
-                        })
+            }
+            
+            for future in futures.as_completed(future_to_device):
+                device = future_to_device[future]
+                try:
+                    result = future.result()
+                    result['device'] = f"{device['room']} ({device['ip']})"
+                    results.append(result)
+                except Exception as e:
+                    results.append({
+                        'device': f"{device['room']} ({device['ip']})",
+                        'ip': device['ip'],
+                        'status': 'error',
+                        'message': f'Status check failed: {str(e)}',
+                        'timestamp': datetime.now().isoformat()
+                    })
         
         self.logger.info(f"✅ Status check completed for {len(results)} devices")
         
@@ -643,15 +680,18 @@ class CCTVToolsService:
         
         result = {
             'ip': ip,
-            'room': device.get('room', 'Unknown'),  # From CSV, will be overwritten by TRTC config
-            'user': device.get('user', 'Unknown'),  # From CSV, will be overwritten by TRTC config
-            'userSig': device.get('userSig', 'Unknown'),  # From CSV, will be overwritten by TRTC config
+            'room': 'Unknown',  # Will be filled from device TRTC API
+            'user': 'Unknown',  # Will be filled from device TRTC API
+            'userSig': 'Unknown',  # Will be filled from device TRTC API
+            'csv_room': device.get('room', 'Unknown'),  # Store CSV values separately for reference
+            'csv_user': device.get('user', 'Unknown'),
+            'csv_userSig': device.get('userSig', 'Unknown'),
             'status': 'error',
             'message': 'Device offline',
             'device_name': 'Unknown',
             'build_date': 'Unknown',
             'app_id': '20008185',
-            'enable': True,  # Default to True if we can't determine (like old version)
+            'enable': False,  # Default to False if we can't determine
             'timestamp': datetime.now().isoformat()
         }
         
@@ -737,7 +777,7 @@ class CCTVToolsService:
                         if response.status_code == 200:
                             self.logger.info(f"[{ip}] TRTC config retrieved using {auth_name}")
                             break
-                        else:
+            else:
                             last_error = f"{auth_name} returned {response.status_code}"
                     except Exception as e:
                         last_error = f"{auth_name} failed: {str(e)}"
@@ -750,16 +790,16 @@ class CCTVToolsService:
                     data = response.json().get('Data', {})
                     result['enable'] = data.get('Enable', 0) == 1
                     result['app_id'] = str(data.get('AppId', '20008185'))
-                    # Only update if TRTC has values, otherwise keep CSV values
-                    trtc_room = data.get('Room', '')
-                    trtc_user = data.get('User', '')
-                    trtc_sig = data.get('UserSig', '')
-                    if trtc_room:
-                        result['room'] = trtc_room
-                    if trtc_user:
-                        result['user'] = trtc_user
-                    if trtc_sig:
-                        result['userSig'] = trtc_sig
+                    
+                    # ALWAYS show what's actually on the device (not CSV values)
+                    # If device returns empty string, show empty string (means not configured)
+                    result['room'] = data.get('Room', '') or ''
+                    result['user'] = data.get('User', '') or ''
+                    result['userSig'] = data.get('UserSig', '') or ''
+                    
+                    # Log if device has no TRTC config
+                    if not result['room'] and not result['user']:
+                        self.logger.info(f"[{ip}] Device has no TRTC configuration")
             except Exception as e:
                 self.logger.warning(f"[{ip}] Could not get TRTC config: {e}")
             
@@ -862,7 +902,7 @@ class CCTVToolsService:
                                 result['message'] = f'Device reboot command sent successfully using {auth_name}'
                                 self.logger.info(f"[{ip}] ✅ Device reboot successful")
                                 return result
-                            else:
+            else:
                                 error_string = response_json.get('ErrorString', 'Unknown error')
                                 result['message'] = f'Reboot API error: {error_string} (Code: {result_code})'
                                 self.logger.warning(f"[{ip}] Reboot API error: {result_code} - {error_string}")
