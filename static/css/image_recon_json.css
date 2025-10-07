@@ -1,5 +1,11 @@
 /* Image Recon JSON Specific Styles */
 
+/* Moderate width modal for Image Recon JSON */
+.modal-content {
+    max-width: 800px !important;
+    width: 90% !important;
+}
+
 .machine-type-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;

@@ -432,7 +432,14 @@ async function restartService() {
 // =====================
 // 📧 Email Management
 // =====================
-async function loadEmailSettings() {
+async function loadEmailSettings(forceRefresh = false) {
+    // Use cached config if available and not forcing refresh
+    if (emailConfig && !forceRefresh) {
+        updateScheduleDisplay();
+        displayEmailRecipients();
+        return;
+    }
+    
     try {
         const response = await fetch('/image-recon-service/get-email-settings');
         const data = await response.json();
@@ -440,6 +447,7 @@ async function loadEmailSettings() {
         if (data.status === 'success') {
             emailConfig = data.config;
             updateScheduleDisplay();
+            displayEmailRecipients();
         }
     } catch (error) {
         console.error('Error loading email settings:', error);
@@ -450,9 +458,8 @@ async function showEmailModal() {
     const modal = document.getElementById('emailModal');
     modal.style.display = 'block';
     
-    // Load settings first
+    // Load settings (uses cache if available)
     await loadEmailSettings();
-    displayEmailRecipients();
 }
 
 function updateScheduleDisplay() {
@@ -501,7 +508,7 @@ async function toggleSchedule() {
         const data = await response.json();
         
         if (data.status === 'success') {
-            await loadEmailSettings();
+            await loadEmailSettings(true); // Force refresh
             CommonUtils.showAlert(data.message, 'success');
         } else {
             // Revert toggle on failure
@@ -597,8 +604,7 @@ async function addEmailRecipient() {
         
         if (data.status === 'success') {
             emailInput.value = '';
-            await loadEmailSettings();
-            displayEmailRecipients();
+            await loadEmailSettings(true); // Force refresh
             CommonUtils.showAlert('Email recipient added successfully!', 'success');
         } else {
             CommonUtils.showAlert('Failed to add recipient: ' + data.message, 'error');
@@ -625,8 +631,7 @@ async function removeEmailRecipient(email) {
         const data = await response.json();
         
         if (data.status === 'success') {
-            await loadEmailSettings();
-            displayEmailRecipients();
+            await loadEmailSettings(true); // Force refresh
             CommonUtils.showAlert('Email recipient removed successfully!', 'success');
         } else {
             CommonUtils.showAlert('Failed to remove recipient: ' + data.message, 'error');
