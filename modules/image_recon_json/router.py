@@ -225,12 +225,18 @@ async def fetch_json_from_server(request: dict):
         remote_path = request.get('remote_path', '/usr/bin/OSMWatcher/list.json')
         
         if not server_ip:
-            raise HTTPException(status_code=400, detail="server_ip is required")
+            return JSONResponse(
+                status_code=400,
+                content={"status": "error", "message": "server_ip is required"}
+            )
         
         content = service.fetch_file_from_server(server_ip, remote_path)
         return JSONResponse(content={"status": "success", "content": content})
     except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"Error fetching JSON from {server_ip}: {error_detail}")
         return JSONResponse(
-            status_code=500,
+            status_code=200,  # Return 200 so frontend can handle the error
             content={"status": "error", "message": str(e)}
         )

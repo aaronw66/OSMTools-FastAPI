@@ -65,8 +65,13 @@ async def get_system_stats():
     """Get system resource usage statistics"""
     import psutil
     
-    # CPU usage
-    cpu_percent = psutil.cpu_percent(interval=1)
+    # CPU usage (non-blocking, instant read)
+    # This gets the CPU usage since the last call (instant)
+    cpu_percent = psutil.cpu_percent(interval=0)
+    
+    # If it's 0.0 (first call), use a quick sample
+    if cpu_percent == 0.0:
+        cpu_percent = psutil.cpu_percent(interval=0.1)
     
     # RAM usage
     ram = psutil.virtual_memory()

@@ -328,15 +328,19 @@ class ImageReconJsonService:
         if not SSH_AVAILABLE:
             raise Exception("SSH functionality not available. Install paramiko and scp packages.")
         
+        # Use Image Recon credentials (root + image-recon-prod.pem)
+        ssh_key_path = 'static/keys/image-recon-prod.pem'
+        ssh_username = 'root'
+        
         try:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             
-            if not os.path.exists(settings.SSH_KEY_PATH):
-                raise ValueError(f"Private key file does not exist at path: {settings.SSH_KEY_PATH}")
+            if not os.path.exists(ssh_key_path):
+                raise ValueError(f"Private key file does not exist at path: {ssh_key_path}")
             
-            private_key = paramiko.RSAKey.from_private_key_file(settings.SSH_KEY_PATH)
-            ssh.connect(server_ip, username=settings.SSH_USERNAME, pkey=private_key, timeout=30)
+            private_key = paramiko.RSAKey.from_private_key_file(ssh_key_path)
+            ssh.connect(server_ip, username=ssh_username, pkey=private_key, timeout=30)
             
             # Execute cat command to read file
             stdin, stdout, stderr = ssh.exec_command(f'cat {remote_file_path}')
@@ -359,15 +363,19 @@ class ImageReconJsonService:
         if not SSH_AVAILABLE:
             return False, "SSH functionality not available. Install paramiko and scp packages."
         
+        # Use Image Recon credentials (root + image-recon-prod.pem)
+        ssh_key_path = 'static/keys/image-recon-prod.pem'
+        ssh_username = 'root'
+        
         try:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             
-            if not os.path.exists(settings.SSH_KEY_PATH):
-                raise ValueError(f"Private key file does not exist at path: {settings.SSH_KEY_PATH}")
+            if not os.path.exists(ssh_key_path):
+                raise ValueError(f"Private key file does not exist at path: {ssh_key_path}")
             
-            private_key = paramiko.RSAKey.from_private_key_file(settings.SSH_KEY_PATH)
-            ssh.connect(server_ip, username=settings.SSH_USERNAME, pkey=private_key, timeout=30)
+            private_key = paramiko.RSAKey.from_private_key_file(ssh_key_path)
+            ssh.connect(server_ip, username=ssh_username, pkey=private_key, timeout=30)
             
             scp = SCPClient(ssh.get_transport())
             scp.put(local_file_path, remote_file_path)
