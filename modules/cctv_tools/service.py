@@ -902,7 +902,7 @@ class CCTVToolsService:
                                 result['message'] = f'Device reboot command sent successfully using {auth_name}'
                                 self.logger.info(f"[{ip}] ✅ Device reboot successful")
                                 return result
-            else:
+                            else:
                                 error_string = response_json.get('ErrorString', 'Unknown error')
                                 result['message'] = f'Reboot API error: {error_string} (Code: {result_code})'
                                 self.logger.warning(f"[{ip}] Reboot API error: {result_code} - {error_string}")
