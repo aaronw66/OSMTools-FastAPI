@@ -43,7 +43,7 @@ async def get_servers():
 
 @router.get("/get-all-server-versions")
 async def get_all_server_versions():
-    """Get current versions for all servers - matches Flask endpoint"""
+    """Get current versions and status for all servers - matches Flask endpoint"""
     try:
         servers = service_manager.get_image_recon_servers()
         version_results = []
@@ -53,12 +53,20 @@ async def get_all_server_versions():
             hostname = server['hostname']
             
             try:
+                # Get version
                 version = service_manager._get_server_version(ip)
+                
+                # Get logs and analyze status
+                logs = service_manager._get_logs_from_server(ip, lines=100)
+                status_analysis = service_manager._analyze_server_status(logs, ip)
+                
                 version_results.append({
                     'ip': ip,
                     'hostname': hostname,
                     'version': version,
-                    'success': version != "Unknown"
+                    'success': version != "Unknown",
+                    'status_color': status_analysis['status_color'],
+                    'status_text': status_analysis['status_text']
                 })
             except Exception as e:
                 version_results.append({
@@ -66,7 +74,9 @@ async def get_all_server_versions():
                     'hostname': hostname,
                     'version': 'Error',
                     'success': False,
-                    'error': str(e)
+                    'error': str(e),
+                    'status_color': 'black',
+                    'status_text': 'Error'
                 })
         
         return JSONResponse(content={

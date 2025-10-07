@@ -637,6 +637,7 @@ class ImageReconServiceManager:
                     break
                 
                 hostname = server.get('hostname', 'Unknown Host')
+                ip = server.get('ip', 'Unknown IP')  # Get the IP address
                 ids = server.get('ids', [])
                 
                 # Search for the query in the ids list (case-insensitive)
@@ -645,6 +646,7 @@ class ImageReconServiceManager:
                 if matching_ids:
                     matching_servers.append({
                         "hostname": hostname,
+                        "ip": ip,  # Include IP address in results
                         "matching_ids": matching_ids,
                         "label": label
                     })
@@ -1279,6 +1281,68 @@ class ImageReconServiceManager:
             
         except Exception as e:
             return f"Error: {str(e)}"
+    
+    def _analyze_server_status(self, logs: str, server_ip: str) -> Dict:
+        """Analyze server logs to determine status - matches Flask 321123.py logic exactly"""
+        # Check for specific offline indicators first (these take priority)
+        offline_indicators = [
+            "stopped osm service"
+        ]
+        
+        is_offline = False
+        for indicator in offline_indicators:
+            if indicator in logs.lower():
+                is_offline = True
+                logger.warning(f"🔴 Server {server_ip} is OFFLINE (found: {indicator})")
+                break
+        
+        # If we can't get logs at all due to connection issues, mark as offline
+        if "Error:" in logs and any(indicator in logs.lower() for indicator in ["connection", "timeout", "ssh"]):
+            is_offline = True
+            logger.warning(f"🔴 Server {server_ip} is OFFLINE (connection error)")
+        
+        # Only check for application errors if server is not offline
+        has_errors = False
+        detected_error = None
+        if not is_offline:
+            # Look for specific application error keywords in logs (matches Flask exactly)
+            error_indicators = [
+                "exception caught: stoi",
+                "system error",
+                "segmentation fault",
+                "cannot open connection",
+                "core dumped",
+                "aborted",
+                "free(): invalid next size",
+                "received signal 6",
+                "curl handler not initialized"
+            ]
+            
+            for indicator in error_indicators:
+                if indicator in logs.lower():
+                    has_errors = True
+                    detected_error = indicator
+                    logger.warning(f"🟡 Server {server_ip} has ERRORS (found: {indicator})")
+                    break
+        
+        # Determine status color
+        if is_offline:
+            status_color = "black"
+            status_text = "Offline"
+        elif has_errors:
+            status_color = "yellow"
+            status_text = f"Error: {detected_error}"
+        else:
+            status_color = "green"
+            status_text = "Online"
+        
+        return {
+            "status_color": status_color,
+            "status_text": status_text,
+            "is_offline": is_offline,
+            "has_errors": has_errors,
+            "detected_error": detected_error
+        }
     
     def check_service_status(self, servers: List[Dict], service_name: str = "osm") -> Dict:
         """Check service status and version on selected servers - matches Flask version"""

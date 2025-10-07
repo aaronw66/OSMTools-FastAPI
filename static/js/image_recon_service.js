@@ -176,6 +176,7 @@ function displayServers() {
             html += `
                 <div class="server-box" onclick="showLogs('${server.ip}', '${server.hostname}')" 
                      title="Click to view logs for ${server.hostname}">
+                    <div class="status-dot status-dot-green" id="status-dot-${server.ip.replace(/\./g, '-')}"></div>
                     <i class="fas fa-desktop server-icon"></i>
                     <div class="server-name">${server.hostname} ${devBadge}</div>
                     <div class="server-version" id="version-${server.ip.replace(/\./g, '-')}">Thinking...</div>
@@ -203,7 +204,11 @@ async function loadServerVersions() {
         
         if (data.status === 'success' && data.results) {
             data.results.forEach(result => {
-                const versionElement = document.getElementById(`version-${result.ip.replace(/\./g, '-')}`);
+                const ipId = result.ip.replace(/\./g, '-');
+                const versionElement = document.getElementById(`version-${ipId}`);
+                const statusDot = document.getElementById(`status-dot-${ipId}`);
+                
+                // Update version display
                 if (versionElement) {
                     // Remove loading class/animation
                     versionElement.classList.remove('loading');
@@ -218,6 +223,24 @@ async function loadServerVersions() {
                         versionElement.style.background = 'rgba(244, 67, 54, 0.3)';
                         versionElement.style.borderColor = 'rgba(244, 67, 54, 0.6)';
                         versionElement.style.color = '#ff7b72';
+                    }
+                }
+                
+                // Update status dot color
+                if (statusDot && result.status_color) {
+                    // Remove all status dot classes
+                    statusDot.classList.remove('status-dot-green', 'status-dot-yellow', 'status-dot-black');
+                    
+                    // Add the appropriate class based on status
+                    if (result.status_color === 'green') {
+                        statusDot.classList.add('status-dot-green');
+                        statusDot.title = 'Online';
+                    } else if (result.status_color === 'yellow') {
+                        statusDot.classList.add('status-dot-yellow');
+                        statusDot.title = `Error: ${result.status_text}`;
+                    } else if (result.status_color === 'black') {
+                        statusDot.classList.add('status-dot-black');
+                        statusDot.title = 'Offline';
                     }
                 }
             });
@@ -240,6 +263,12 @@ async function loadServerVersions() {
                 el.style.background = 'rgba(244, 67, 54, 0.3)';
                 el.style.color = '#ff7b72';
             }
+        });
+        // Set all status dots to black (offline/error)
+        document.querySelectorAll('[id^="status-dot-"]').forEach(dot => {
+            dot.classList.remove('status-dot-green', 'status-dot-yellow');
+            dot.classList.add('status-dot-black');
+            dot.title = 'Error';
         });
     }
 }
