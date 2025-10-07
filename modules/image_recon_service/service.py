@@ -641,8 +641,8 @@ class ImageReconServiceManager:
         for label, servers in server_groups.items():
             if len(matching_servers) >= max_results:
                 break
-        
-        for server in servers:
+            
+            for server in servers:
                 if len(matching_servers) >= max_results:
                     break
                 
