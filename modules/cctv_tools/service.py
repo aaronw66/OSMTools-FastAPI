@@ -196,22 +196,22 @@ class CCTVToolsService:
             
             # Process this batch in parallel (10 workers for the batch)
             with futures.ThreadPoolExecutor(max_workers=10) as executor:
-            future_to_device = {
-                executor.submit(self._configure_single_device, device, firmware_version): device 
+                future_to_device = {
+                    executor.submit(self._configure_single_device, device, firmware_version): device 
                     for device in batch
-            }
-            
-            for future in futures.as_completed(future_to_device):
-                device = future_to_device[future]
-                try:
-                    result = future.result()
-                    result['device'] = f"{device['room']} ({device['ip']})"
-                    results.append(result)
-                except Exception as e:
-                    results.append({
-                        'device': f"{device['room']} ({device['ip']})",
-                        'ip': device['ip'],
-                        'status': 'error',
+                }
+                
+                for future in futures.as_completed(future_to_device):
+                    device = future_to_device[future]
+                    try:
+                        result = future.result()
+                        result['device'] = f"{device['room']} ({device['ip']})"
+                        results.append(result)
+                    except Exception as e:
+                        results.append({
+                            'device': f"{device['room']} ({device['ip']})",
+                            'ip': device['ip'],
+                            'status': 'error',
                         'message': f'Configuration failed: {str(e)}',
                         'timestamp': datetime.now().isoformat()
                     })
