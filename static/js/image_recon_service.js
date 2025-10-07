@@ -65,6 +65,7 @@ function setupSearchBox() {
 
 async function performSearch(query) {
     try {
+        console.log(`🔍 Searching for: "${query}"`);
         const response = await fetch('/image-recon-service/search-machines', {
             method: 'POST',
             headers: {
@@ -76,12 +77,13 @@ async function performSearch(query) {
         const data = await response.json();
         
         if (data.status === 'success') {
+            console.log(`✅ Search returned ${data.results.length} results:`, data.results);
             displaySearchResults(data.results);
         } else {
-            console.error('Search failed:', data.message);
+            console.error('❌ Search failed:', data.message);
         }
     } catch (error) {
-        console.error('Search error:', error);
+        console.error('❌ Search error:', error);
     }
 }
 
@@ -94,15 +96,19 @@ function displaySearchResults(results) {
         return;
     }
     
-    const resultsHTML = results.map(server => `
-        <div class="search-result-item" onclick="showLogs('${server.ip}', '${server.hostname}')">
-            <div class="search-result-info">
-                <div class="search-result-name">${server.hostname}</div>
-                <div class="search-result-details">IP: ${server.ip} | Label: ${server.label}</div>
+    const resultsHTML = results.map(server => {
+        console.log(`📋 Rendering search result: ${server.hostname} (IP: ${server.ip})`);
+        return `
+            <div class="search-result-item" onclick="showLogs('${server.ip}', '${server.hostname}')">
+                <div class="search-result-info">
+                    <div class="search-result-name">${server.hostname}</div>
+                    <div class="search-result-details">IP: ${server.ip} | Label: ${server.label}</div>
+                    <div class="search-result-machines">Machines: ${server.matching_ids.join(', ')}</div>
+                </div>
+                <i class="fas fa-external-link-alt"></i>
             </div>
-            <i class="fas fa-external-link-alt"></i>
-        </div>
-    `).join('');
+        `;
+    }).join('');
     
     searchResults.innerHTML = resultsHTML;
     searchResults.style.display = 'block';

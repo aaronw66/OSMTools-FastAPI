@@ -111,37 +111,37 @@ class ImageReconServiceManager:
                 print(f"⏭️  Skipping (not found): {json_file_path}")
                 continue
         
-            try:
-                with open(json_file_path, 'r') as f:
-                    data = json.load(f)
+        try:
+            with open(json_file_path, 'r') as f:
+                data = json.load(f)
             
-                servers = []
-                if isinstance(data, list):
-                    for item in data:
-                        targets = item.get('targets', [])
-                        for target in targets:
-                            ip = target.split(':')[0]
-                            hostname = item.get('labels', {}).get('hostname', 'Unknown Host')
-                            label = hostname.split('-')[0]
+            servers = []
+            if isinstance(data, list):
+                for item in data:
+                    targets = item.get('targets', [])
+                    for target in targets:
+                        ip = target.split(':')[0]
+                        hostname = item.get('labels', {}).get('hostname', 'Unknown Host')
+                        label = hostname.split('-')[0]
                         
-                            # Filter out SRS servers for restart operations
-                            if label.upper() != 'SRS':
-                                servers.append({
-                                    "ip": ip,
-                                    "hostname": hostname,
-                                    "label": label,
-                                    "status": "unknown"
-                                })
+                        # Filter out SRS servers for restart operations
+                        if label.upper() != 'SRS':
+                            servers.append({
+                                "ip": ip,
+                                "hostname": hostname,
+                                "label": label,
+                                "status": "unknown"
+                            })
             
                         print(f"✅ Loaded {len(servers)} servers from: {json_file_path}")
-                return servers
-            except Exception as e:
+            return servers
+        except Exception as e:
                         print(f"❌ Error reading {json_file_path}: {e}")
                         continue
         
         # If no config files found, use mock data
         print("⚠️ No config files found in any location - using mock data for development")
-        return self._get_mock_servers()
+            return self._get_mock_servers()
 
     
     def _get_mock_servers(self) -> List[Dict]:
@@ -641,8 +641,8 @@ class ImageReconServiceManager:
         for label, servers in server_groups.items():
             if len(matching_servers) >= max_results:
                 break
-            
-            for server in servers:
+        
+        for server in servers:
                 if len(matching_servers) >= max_results:
                     break
                 
@@ -859,7 +859,7 @@ class ImageReconServiceManager:
             
             # Get recipients from config file if not provided
             if not recipients:
-                config = self.load_email_config()
+            config = self.load_email_config()
                 recipients = config.get("recipients", [])
             
             if not recipients:
@@ -957,7 +957,7 @@ class ImageReconServiceManager:
             # Send email
             logger.info(f"📧 Sending email to {len(recipients)} recipients via {smtp_server}")
             server = smtplib.SMTP(smtp_server, smtp_port)
-            server.starttls()
+                server.starttls()
             server.login(sender_email, sender_password)
             text = msg.as_string()
             server.sendmail(sender_email, recipients, text)
@@ -1144,11 +1144,13 @@ class ImageReconServiceManager:
                     successful_fetches += 1
                     refreshed_data[label].append({
                         "hostname": hostname,
+                        "ip": server_ip,  # Include IP address
                         "ids": ids
                     })
                 else:
                     refreshed_data[label].append({
                         "hostname": hostname,
+                        "ip": server_ip,  # Include IP address
                         "ids": []  # If no IDs were fetched, set an empty list
                     })
             
@@ -1420,7 +1422,7 @@ Oct 07 11:45:45 image-recon-server osm[1234]: [INFO] Health check passed
                 
                 status = "offline" if is_offline else ("error" if has_errors else "online")
             
-                results.append({
+            results.append({
                 "server": server_hostname,
                 "ip": server_ip,
                 "status": status,
@@ -1526,7 +1528,7 @@ Oct 07 11:45:45 image-recon-server osm[1234]: [INFO] Health check passed
                         ssh.close()
                         logger.error(f"⏰ Restart timeout after {timeout} seconds on {server_ip}")
                         msg = f"Restart timeout after {timeout} seconds. Service may still be restarting."
-                        results.append({
+                    results.append({
                         "hostname": hostname,
                         "ip": server_ip,
                         "status": "error",
