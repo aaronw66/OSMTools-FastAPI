@@ -315,21 +315,55 @@ class ImageReconServiceManager:
             
             logger.info(f"🔍 Checking versions on {len(servers)} servers")
             
+            # First pass: collect all versions to find the most common one (target version)
+            all_versions = []
+            for server in servers:
+                try:
+                    version = self._get_server_version(server.get('ip'))
+                    if version and version != 'N/A' and version != 'Error' and version != 'Offline' and version != 'Unknown':
+                        all_versions.append(version)
+                except Exception:
+                    pass
+            
+            # Determine target version (most common version)
+            from collections import Counter
+            if all_versions:
+                version_counts = Counter(all_versions)
+                target_version = version_counts.most_common(1)[0][0]
+                logger.info(f"🎯 Auto-detected target version: {target_version}")
+            else:
+                target_version = "Auto-Detect"
+            
+            # Second pass: check each server and categorize
             for server in servers:
                 try:
                     # Get version directly using _get_server_version (only takes server_ip)
                     version = self._get_server_version(server.get('ip'))
                     
                     if version and version != 'N/A' and version != 'Error' and version != 'Offline' and version != 'Unknown':
-                        successful_checks += 1
-                        version_results.append({
-                            'success': True,
-                            'hostname': server.get('hostname', 'Unknown'),
-                            'ip': server.get('ip', 'Unknown'),
-                            'version': version,
-                            'status': 'Version found'
-                        })
-                        logger.info(f"✅ {server.get('hostname')}: {version}")
+                        # Check if this version matches the target
+                        if version == target_version:
+                            successful_checks += 1
+                            version_results.append({
+                                'success': True,
+                                'hostname': server.get('hostname', 'Unknown'),
+                                'ip': server.get('ip', 'Unknown'),
+                                'version': version,
+                                'status': 'Found'
+                            })
+                            logger.info(f"✅ {server.get('hostname')}: {version}")
+                        else:
+                            # Different version found
+                            failed_checks += 1
+                            version_results.append({
+                                'success': False,
+                                'hostname': server.get('hostname', 'Unknown'),
+                                'ip': server.get('ip', 'Unknown'),
+                                'version': version,
+                                'error': f'Different version (expected {target_version})',
+                                'status': f'Different version: {version} (expected {target_version})'
+                            })
+                            logger.warning(f"⚠️ {server.get('hostname')}: Different version {version} (expected {target_version})")
                     else:
                         failed_checks += 1
                         version_results.append({
@@ -353,13 +387,12 @@ class ImageReconServiceManager:
                     })
                     logger.error(f"❌ {server.get('hostname')}: {str(e)}")
             
-            # Send email report
-            target_version = "Auto-Detect"
+            # Send email report (use the auto-detected target version)
             email_result = self.send_version_report_email(
                 version_results, 
                 successful_checks, 
                 failed_checks, 
-                target_version
+                target_version  # Use the most common version detected above
             )
             
             if email_result.get('status') == 'success':
@@ -378,7 +411,7 @@ class ImageReconServiceManager:
                     f"📈 Success Rate: {success_rate:.1f}%\n\n"
                     f"Email report has been sent to:\n{', '.join(recipients)}"
                 )
-                self.send_lark_notification(lark_message)
+                self._send_simple_lark_notification(lark_message)
                 
                 return {
                     "status": "success",
@@ -398,7 +431,7 @@ class ImageReconServiceManager:
                     f"❌ Failed: {failed_checks}\n\n"
                     f"Error: {email_result.get('message')}"
                 )
-                self.send_lark_notification(lark_message)
+                self._send_simple_lark_notification(lark_message)
                 
                 return {
                     "status": "error",
@@ -411,6 +444,38 @@ class ImageReconServiceManager:
                 "status": "error",
                 "message": str(e)
             }
+    
+    def _send_simple_lark_notification(self, message: str):
+        """Send a simple text notification to Lark webhook"""
+        if not REQUESTS_AVAILABLE:
+            return
+        
+        try:
+            headers = {"Content-Type": "application/json; charset=utf-8"}
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Add timestamp to message
+            full_message = f"📅 **Time:** {timestamp}\n\n{message}"
+            
+            # Prepare webhook body
+            body = {
+                "msg_type": "text",
+                "content": {
+                    "text": full_message
+                }
+            }
+            
+            # Send to Lark webhook
+            logger.info(f"📤 Sending notification to Lark webhook...")
+            response = requests.post(settings.LARK_WEBHOOK_URL, headers=headers, json=body, timeout=10)
+            
+            if response.status_code == 200:
+                logger.info(f"✅ Notification sent successfully to Lark")
+            else:
+                logger.error(f"❌ Failed to send notification to Lark webhook: {response.status_code}")
+                
+        except Exception as e:
+            logger.error(f"❌ Error sending Lark notification: {str(e)}")
     
     def send_version_report_email(self, version_results: List[Dict], successful_checks: int, 
                                    failed_checks: int, target_version: str) -> Dict:
