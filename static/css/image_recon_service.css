@@ -318,8 +318,12 @@ body {
 
 /* Loading State */
 .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
     text-align: center;
-    padding: 60px 20px;
     color: #8b949e;
 }
 
@@ -327,6 +331,10 @@ body {
     font-size: 2rem;
     margin-bottom: 15px;
     color: #4a9eff;
+}
+
+.loading-state div {
+    font-size: 1.1rem;
 }
 
 .loading-state p {
@@ -437,8 +445,8 @@ body {
     border-radius: 6px;
     padding: 15px;
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-    font-size: 13px;
-    line-height: 1.6;
+    font-size: 11px;
+    line-height: 1.5;
     color: #333;
     white-space: pre-wrap;
     word-wrap: break-word;

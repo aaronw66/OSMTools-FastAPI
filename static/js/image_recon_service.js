@@ -8,12 +8,26 @@ let emailConfig = {};
 let searchTimeout = null;
 let logsRefreshInterval = null;
 
+// Performance tracking
+const pageLoadStart = performance.now();
+
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
+    const initStart = performance.now();
+    console.log('🚀 Image Recon Service - Initializing...');
     loadServers();
     loadEmailSettings();
     setupSearchBox();
     setupEventListeners();
+    const initEnd = performance.now();
+    console.log(`✅ Image Recon Service - Initialization complete in ${(initEnd - initStart).toFixed(2)}ms`);
+});
+
+// Track when everything is fully loaded
+window.addEventListener('load', function() {
+    const pageLoadEnd = performance.now();
+    const totalLoadTime = pageLoadEnd - pageLoadStart;
+    console.log(`⏱️ Total page load time: ${(totalLoadTime / 1000).toFixed(2)}s`);
 });
 
 // =====================
@@ -98,20 +112,24 @@ function displaySearchResults(results) {
 // 🖥️ Server Management
 // =====================
 async function loadServers() {
+    const startTime = performance.now();
     try {
+        console.log('📡 Fetching server list...');
         const response = await fetch('/image-recon-service/get-servers');
         const data = await response.json();
         
         if (data.status === 'success') {
+            const endTime = performance.now();
+            console.log(`✅ Loaded ${data.servers.length} servers in ${(endTime - startTime).toFixed(2)}ms`);
             availableServers = data.servers;
             displayServers();
             loadServerVersions();
         } else {
-            console.error('Failed to load servers:', data.message);
+            console.error('❌ Failed to load servers:', data.message);
             showError('Failed to load servers: ' + data.message);
         }
     } catch (error) {
-        console.error('Error loading servers:', error);
+        console.error('❌ Error loading servers:', error);
         showError('Error loading servers: ' + error.message);
     }
 }
@@ -193,7 +211,9 @@ function displayServers() {
 
 async function loadServerVersions() {
     // Load all versions at once - matches Flask version exactly
+    const startTime = performance.now();
     try {
+        console.log('🔍 Fetching server versions and status...');
         const response = await fetch('/image-recon-service/get-all-server-versions');
         
         if (!response.ok) {
@@ -201,6 +221,8 @@ async function loadServerVersions() {
         }
         
         const data = await response.json();
+        const endTime = performance.now();
+        console.log(`✅ Received version data for ${data.results ? data.results.length : 0} servers in ${(endTime - startTime).toFixed(2)}ms`);
         
         if (data.status === 'success' && data.results) {
             data.results.forEach(result => {
@@ -313,6 +335,7 @@ async function refreshServers() {
 // 📝 Log Management
 // =====================
 async function showLogs(serverIP, hostname) {
+    console.log(`📋 Opening logs modal for ${hostname} (${serverIP})`);
     currentServerIP = serverIP;
     currentServerHostname = hostname;
     
@@ -332,10 +355,12 @@ async function showLogs(serverIP, hostname) {
     
     // Clear any existing refresh interval
     if (logsRefreshInterval) {
+        console.log('⏹️ Clearing existing log refresh interval');
         clearInterval(logsRefreshInterval);
     }
     
     // Start auto-refresh every 2.5 seconds (matches Flask version)
+    console.log('⏰ Starting log auto-refresh (every 2.5s)');
     logsRefreshInterval = setInterval(() => {
         loadLogs(serverIP);
     }, 2500);
@@ -350,6 +375,7 @@ async function showLogs(serverIP, hostname) {
 
 async function loadLogs(serverIP, lines = 50) {
     try {
+        console.log(`📥 Fetching logs from ${serverIP} (${lines} lines)...`);
         const response = await fetch('/image-recon-service/get-logs', {
             method: 'POST',
             headers: {
@@ -365,8 +391,10 @@ async function loadLogs(serverIP, lines = 50) {
         const logsContainer = document.getElementById('logs');
         
         if (data.status === 'success') {
+            console.log(`✅ Logs loaded successfully (${data.logs.split('\n').length} lines)`);
             logsContainer.textContent = data.logs;
         } else {
+            console.warn(`⚠️ Failed to load logs: ${data.message}`);
             logsContainer.innerHTML = `
                 <div style="color: #ff7b72; text-align: center; padding: 20px;">
                     <i class="fas fa-exclamation-triangle"></i><br>
@@ -375,7 +403,7 @@ async function loadLogs(serverIP, lines = 50) {
             `;
         }
     } catch (error) {
-        console.error('Error loading logs:', error);
+        console.error('❌ Error loading logs:', error);
         const logsContainer = document.getElementById('logs');
         logsContainer.innerHTML = `
             <div style="color: #ff7b72; text-align: center; padding: 20px;">
@@ -388,6 +416,7 @@ async function loadLogs(serverIP, lines = 50) {
 
 async function refreshLogs() {
     if (currentServerIP) {
+        console.log('🔄 Manual log refresh triggered');
         await loadLogs(currentServerIP);
     }
 }
@@ -395,6 +424,7 @@ async function refreshLogs() {
 async function restartService() {
     if (!currentServerIP || !currentServerHostname) return;
     
+    console.log(`🔄 Restart service requested for ${currentServerHostname} (${currentServerIP})`);
     const confirmed = confirm('Are you sure you want to restart the service on this server?');
     if (!confirmed) return;
     
@@ -417,14 +447,16 @@ async function restartService() {
         const data = await response.json();
         
         if (data.status === 'success') {
+            console.log('✅ Service restart initiated successfully');
             showMessage('Service restart initiated successfully!', 'success');
             // Refresh logs after a delay
             setTimeout(() => refreshLogs(), 3000);
         } else {
+            console.warn('⚠️ Failed to restart service:', data.message);
             showMessage('Failed to restart service: ' + data.message, 'error');
         }
     } catch (error) {
-        console.error('Error restarting service:', error);
+        console.error('❌ Error restarting service:', error);
         showMessage('Error restarting service: ' + error.message, 'error');
     }
 }

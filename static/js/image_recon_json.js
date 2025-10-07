@@ -7,8 +7,22 @@ let currentEditServer = null;
 let currentJsonData = null;
 let showingRawJson = false;
 
+// Performance tracking
+const pageLoadStart = performance.now();
+
 document.addEventListener('DOMContentLoaded', function() {
+    const initStart = performance.now();
+    console.log('🚀 Image Recon JSON - Initializing...');
     initializeImageReconJson();
+    const initEnd = performance.now();
+    console.log(`✅ Image Recon JSON - Initialization complete in ${(initEnd - initStart).toFixed(2)}ms`);
+});
+
+// Track when everything is fully loaded
+window.addEventListener('load', function() {
+    const pageLoadEnd = performance.now();
+    const totalLoadTime = pageLoadEnd - pageLoadStart;
+    console.log(`⏱️ Total page load time: ${(totalLoadTime / 1000).toFixed(2)}s`);
 });
 
 async function initializeImageReconJson() {

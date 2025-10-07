@@ -1,5 +1,12 @@
 // Dashboard JavaScript
+
+// Performance tracking
+const pageLoadStart = performance.now();
+
 document.addEventListener('DOMContentLoaded', function() {
+    const initStart = performance.now();
+    console.log('🚀 Dashboard - Initializing...');
+    
     // Add smooth animations
     const toolCards = document.querySelectorAll('.tool-card');
     
@@ -56,12 +63,25 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Refresh stats every 5 seconds
     setInterval(loadSystemStats, 5000);
+    
+    const initEnd = performance.now();
+    console.log(`✅ Dashboard - Initialization complete in ${(initEnd - initStart).toFixed(2)}ms`);
+});
+
+// Track when everything is fully loaded
+window.addEventListener('load', function() {
+    const pageLoadEnd = performance.now();
+    const totalLoadTime = pageLoadEnd - pageLoadStart;
+    console.log(`⏱️ Total page load time: ${(totalLoadTime / 1000).toFixed(2)}s`);
 });
 
 async function loadSystemStats() {
+    const startTime = performance.now();
     try {
         const response = await fetch('/api/system-stats');
         const data = await response.json();
+        const endTime = performance.now();
+        console.log(`📊 System stats loaded in ${(endTime - startTime).toFixed(2)}ms`);
         
         // Update CPU
         document.getElementById('cpuUsage').textContent = data.cpu.display;

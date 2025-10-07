@@ -4,6 +4,9 @@ let uploadedDevices = [];
 let currentOperation = null;
 let operationResults = [];
 
+// Performance tracking
+const pageLoadStart = performance.now();
+
 // Create a simple alert function that works for this page
 function showAlert(message, type = 'info') {
     console.log(`[${type.toUpperCase()}] ${message}`);
@@ -55,9 +58,20 @@ if (!document.getElementById('alert-animations')) {
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
+    const initStart = performance.now();
+    console.log('🚀 CCTV Tools - Initializing...');
     loadFirmwareVersions();
     setupFileUpload();
     setupEventListeners();
+    const initEnd = performance.now();
+    console.log(`✅ CCTV Tools - Initialization complete in ${(initEnd - initStart).toFixed(2)}ms`);
+});
+
+// Track when everything is fully loaded
+window.addEventListener('load', function() {
+    const pageLoadEnd = performance.now();
+    const totalLoadTime = pageLoadEnd - pageLoadStart;
+    console.log(`⏱️ Total page load time: ${(totalLoadTime / 1000).toFixed(2)}s`);
 });
 
 // =====================
@@ -101,6 +115,7 @@ function setupEventListeners() {
 
 async function loadFirmwareVersions() {
     try {
+        console.log('📦 Loading firmware versions...');
         const response = await fetch('/cctv-tools/get-firmware-versions');
         const data = await response.json();
         
@@ -108,6 +123,7 @@ async function loadFirmwareVersions() {
         select.innerHTML = '<option value="">Select firmware version...</option>';
         
         if (data.status === 'success' && data.versions) {
+            console.log(`✅ Loaded ${data.versions.length} firmware versions`);
             data.versions.forEach(version => {
                 const option = document.createElement('option');
                 option.value = version.file;
@@ -139,11 +155,14 @@ async function loadFirmwareVersions() {
 // 📁 File Handling
 // =====================
 function parseCSVFile(file) {
+    console.log(`📄 Parsing CSV file: ${file.name}`);
     const reader = new FileReader();
     reader.onload = function(e) {
         const csv = e.target.result;
         const lines = csv.split('\n');
         const devices = [];
+        
+        console.log(`📊 CSV has ${lines.length} total lines`);
         
         // Skip header row and parse data
         for (let i = 1; i < lines.length; i++) {
@@ -164,8 +183,8 @@ function parseCSVFile(file) {
         }
         
         uploadedDevices = devices;
-        console.log(`✅ CSV parsed: ${devices.length} devices loaded`);
-        console.log('Devices:', devices);
+        console.log(`✅ CSV parsed: ${devices.length} valid devices loaded`);
+        console.log('📋 Device list:', devices);
         showAlert(`Loaded ${devices.length} devices from CSV`, 'success');
     };
     
