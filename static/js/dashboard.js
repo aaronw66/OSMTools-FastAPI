@@ -5,7 +5,8 @@ const pageLoadStart = performance.now();
 
 document.addEventListener('DOMContentLoaded', function() {
     const initStart = performance.now();
-    console.log('🚀 Dashboard - Initializing...');
+    console.group('🏠 Dashboard');
+    console.log('🚀 Initializing...');
     
     // Add smooth animations
     const toolCards = document.querySelectorAll('.tool-card');
@@ -65,7 +66,8 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(loadSystemStats, 5000);
     
     const initEnd = performance.now();
-    console.log(`✅ Dashboard - Initialization complete in ${(initEnd - initStart).toFixed(2)}ms`);
+    console.log(`✅ Initialization complete in ${(initEnd - initStart).toFixed(2)}ms`);
+    console.groupEnd();
 });
 
 // Track when everything is fully loaded

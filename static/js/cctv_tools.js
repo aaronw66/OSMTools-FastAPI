@@ -59,12 +59,14 @@ if (!document.getElementById('alert-animations')) {
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     const initStart = performance.now();
-    console.log('🚀 CCTV Tools - Initializing...');
+    console.group('📹 CCTV Tools');
+    console.log('🚀 Initializing...');
     loadFirmwareVersions();
     setupFileUpload();
     setupEventListeners();
     const initEnd = performance.now();
-    console.log(`✅ CCTV Tools - Initialization complete in ${(initEnd - initStart).toFixed(2)}ms`);
+    console.log(`✅ Initialization complete in ${(initEnd - initStart).toFixed(2)}ms`);
+    console.groupEnd();
 });
 
 // Track when everything is fully loaded

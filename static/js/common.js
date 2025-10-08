@@ -1,5 +1,15 @@
 // Common JavaScript functions for all pages
 
+// Show console tip on first load
+if (!sessionStorage.getItem('consoleHintShown')) {
+    console.log('%c💡 Console Tip', 'color: #4a9eff; font-size: 14px; font-weight: bold;');
+    console.log('%cTo keep logs visible when switching pages:', 'color: #8b949e; font-size: 12px;');
+    console.log('%c1. Open Console Settings (⚙️)', 'color: #8b949e; font-size: 12px;');
+    console.log('%c2. Check "Preserve log"', 'color: #8b949e; font-size: 12px;');
+    console.log('%c3. Logs will persist across page navigation!', 'color: #7ee787; font-size: 12px;');
+    sessionStorage.setItem('consoleHintShown', 'true');
+}
+
 // Utility Functions
 function showAlert(message, type = 'info') {
     const alertDiv = document.createElement('div');

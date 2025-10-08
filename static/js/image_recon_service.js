@@ -12,15 +12,27 @@ let logsRefreshInterval = null;
 const pageLoadStart = performance.now();
 
 // Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     const initStart = performance.now();
-    console.log('🚀 Image Recon Service - Initializing...');
-    loadServers();
-    loadEmailSettings();
+    console.group('🖼️ Image Recon Service');
+    console.log('🚀 Initializing...');
+    
+    // Load servers and settings in parallel (non-blocking)
+    Promise.all([
+        loadServers(),
+        loadEmailSettings()
+    ]).catch(error => {
+        console.error('❌ Error during initialization:', error);
+    });
+    
+    // Setup UI immediately (non-blocking)
     setupSearchBox();
     setupEventListeners();
+    
     const initEnd = performance.now();
-    console.log(`✅ Image Recon Service - Initialization complete in ${(initEnd - initStart).toFixed(2)}ms`);
+    console.log(`✅ Initialization complete in ${(initEnd - initStart).toFixed(2)}ms`);
+    console.log('📡 Server data loading in background...');
+    console.groupEnd();
 });
 
 // Track when everything is fully loaded
@@ -219,7 +231,7 @@ async function loadServerVersions() {
     // Load all versions at once - matches Flask version exactly
     const startTime = performance.now();
     try {
-        console.log('🔍 Fetching server versions and status...');
+        console.log('🔍 Fetching server versions and status (from cache if available)...');
         const response = await fetch('/image-recon-service/get-all-server-versions');
         
         if (!response.ok) {
@@ -228,7 +240,14 @@ async function loadServerVersions() {
         
         const data = await response.json();
         const endTime = performance.now();
-        console.log(`✅ Received version data for ${data.results ? data.results.length : 0} servers in ${(endTime - startTime).toFixed(2)}ms`);
+        const loadTime = endTime - startTime;
+        
+        // Show if data was likely from cache (< 1 second = cached)
+        if (loadTime < 1000) {
+            console.log(`✅ Received version data for ${data.results ? data.results.length : 0} servers in ${loadTime.toFixed(2)}ms ⚡ (from cache)`);
+        } else {
+            console.log(`✅ Received version data for ${data.results ? data.results.length : 0} servers in ${loadTime.toFixed(2)}ms`);
+        }
         
         if (data.status === 'success' && data.results) {
             data.results.forEach(result => {

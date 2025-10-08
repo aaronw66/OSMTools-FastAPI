@@ -4,6 +4,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import asyncio
+from contextlib import asynccontextmanager
 from config import settings
 
 # Import routers
@@ -13,13 +15,78 @@ from modules.cctv_tools.router import router as cctv_tools_router
 from modules.osmachine.router import router as osmachine_router
 from modules.config_editor.router import router as config_editor_router
 
-# Create FastAPI app
+# Import service manager for background tasks
+from modules.image_recon_service.service import ImageReconServiceManager
+
+# Background task for version caching
+async def refresh_version_cache_periodically():
+    """Background task to refresh version cache every 10 minutes"""
+    service_manager = ImageReconServiceManager()
+    
+    while True:
+        try:
+            print("🔄 [Background] Starting periodic version cache refresh...")
+            servers = service_manager.get_image_recon_servers()
+            
+            if servers:
+                # Pre-fetch all versions to populate cache
+                for server in servers:
+                    try:
+                        version = service_manager._get_server_version(server['ip'])
+                        print(f"✅ [Background] Cached version for {server['hostname']}: {version}")
+                    except Exception as e:
+                        print(f"⚠️ [Background] Failed to cache version for {server['hostname']}: {e}")
+                
+                print(f"✅ [Background] Version cache refresh completed for {len(servers)} servers")
+            else:
+                print("⚠️ [Background] No servers found for version caching")
+        except Exception as e:
+            print(f"❌ [Background] Error in version cache refresh: {e}")
+        
+        # Wait 10 minutes before next refresh
+        await asyncio.sleep(600)  # 600 seconds = 10 minutes
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown events"""
+    # Startup: Warm up cache immediately, then start background task
+    print("🚀 Warming up version cache on startup...")
+    service_manager = ImageReconServiceManager()
+    try:
+        servers = service_manager.get_image_recon_servers()
+        if servers:
+            print(f"📊 Pre-caching versions for {len(servers)} servers...")
+            for server in servers[:5]:  # Cache first 5 servers immediately for fast initial load
+                try:
+                    version = service_manager._get_server_version(server['ip'])
+                    print(f"✅ [Startup] Cached {server['hostname']}: {version}")
+                except Exception as e:
+                    print(f"⚠️ [Startup] Failed to cache {server['hostname']}: {e}")
+            print("✅ Initial cache warm-up completed")
+    except Exception as e:
+        print(f"⚠️ Cache warm-up error: {e}")
+    
+    print("🔄 Starting background version cache refresh task (every 10 minutes)...")
+    task = asyncio.create_task(refresh_version_cache_periodically())
+    
+    yield
+    
+    # Shutdown: Cancel background task
+    print("🛑 Stopping background version cache refresh task...")
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        print("✅ Background task cancelled successfully")
+
+# Create FastAPI app with lifespan
 app = FastAPI(
     title="OSMTools v2.0",
     description="Operational Support Management Tools - Modernized with FastAPI",
     version="2.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # Add CORS middleware

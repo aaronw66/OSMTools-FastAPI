@@ -12,10 +12,12 @@ const pageLoadStart = performance.now();
 
 document.addEventListener('DOMContentLoaded', function() {
     const initStart = performance.now();
-    console.log('🚀 Image Recon JSON - Initializing...');
+    console.group('📝 Image Recon JSON');
+    console.log('🚀 Initializing...');
     initializeImageReconJson();
     const initEnd = performance.now();
-    console.log(`✅ Image Recon JSON - Initialization complete in ${(initEnd - initStart).toFixed(2)}ms`);
+    console.log(`✅ Initialization complete in ${(initEnd - initStart).toFixed(2)}ms`);
+    console.groupEnd();
 });
 
 // Track when everything is fully loaded
