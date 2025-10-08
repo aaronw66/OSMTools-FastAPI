@@ -43,33 +43,36 @@ async def get_servers():
 
 @router.get("/get-all-server-versions")
 async def get_all_server_versions():
-    """Get current versions and status for all servers - matches Flask endpoint"""
+    """Get current versions and status for all servers - PARALLEL for speed"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
     try:
         servers = service_manager.get_image_recon_servers()
         version_results = []
         
-        for server in servers:
+        def fetch_server_info(server):
+            """Fetch version and status for a single server"""
             ip = server['ip']
             hostname = server['hostname']
             
             try:
-                # Get version
+                # Get version (from cache if available)
                 version = service_manager._get_server_version(ip)
                 
                 # Get logs and analyze status
                 logs = service_manager._get_logs_from_server(ip, lines=100)
                 status_analysis = service_manager._analyze_server_status(logs, ip)
                 
-                version_results.append({
+                return {
                     'ip': ip,
                     'hostname': hostname,
                     'version': version,
                     'success': version != "Unknown",
                     'status_color': status_analysis['status_color'],
                     'status_text': status_analysis['status_text']
-                })
+                }
             except Exception as e:
-                version_results.append({
+                return {
                     'ip': ip,
                     'hostname': hostname,
                     'version': 'Error',
@@ -77,7 +80,26 @@ async def get_all_server_versions():
                     'error': str(e),
                     'status_color': 'black',
                     'status_text': 'Error'
-                })
+                }
+        
+        # Fetch all servers in parallel (10 at a time for speed)
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(fetch_server_info, server): server for server in servers}
+            
+            for future in as_completed(futures):
+                try:
+                    result = future.result(timeout=10)  # 10 second timeout per server
+                    version_results.append(result)
+                except Exception as e:
+                    server = futures[future]
+                    version_results.append({
+                        'ip': server['ip'],
+                        'hostname': server['hostname'],
+                        'version': 'Timeout',
+                        'success': False,
+                        'status_color': 'black',
+                        'status_text': 'Timeout'
+                    })
         
         return JSONResponse(content={
             "status": "success",

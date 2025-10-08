@@ -636,26 +636,26 @@ class CCTVToolsService:
             self.logger.info(f"📊 Processing batch {batch_num}/{total_batches} ({len(batch)} devices)")
             
             # Process this batch in parallel (10 workers for the batch)
-        with futures.ThreadPoolExecutor(max_workers=10) as executor:
-            future_to_device = {
-                executor.submit(self._check_single_device_status, device): device 
-                    for device in batch
-            }
-            
-            for future in futures.as_completed(future_to_device):
-                device = future_to_device[future]
-                try:
-                    result = future.result()
-                    result['device'] = f"{device['room']} ({device['ip']})"
-                    results.append(result)
-                except Exception as e:
-                    results.append({
-                        'device': f"{device['room']} ({device['ip']})",
-                        'ip': device['ip'],
-                        'status': 'error',
-                        'message': f'Status check failed: {str(e)}',
-                        'timestamp': datetime.now().isoformat()
-                    })
+            with futures.ThreadPoolExecutor(max_workers=10) as executor:
+                future_to_device = {
+                    executor.submit(self._check_single_device_status, device): device 
+                        for device in batch
+                }
+                
+                for future in futures.as_completed(future_to_device):
+                    device = future_to_device[future]
+                    try:
+                        result = future.result()
+                        result['device'] = f"{device['room']} ({device['ip']})"
+                        results.append(result)
+                    except Exception as e:
+                        results.append({
+                            'device': f"{device['room']} ({device['ip']})",
+                            'ip': device['ip'],
+                            'status': 'error',
+                            'message': f'Status check failed: {str(e)}',
+                            'timestamp': datetime.now().isoformat()
+                        })
         
         self.logger.info(f"✅ Status check completed for {len(results)} devices")
         
