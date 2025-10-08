@@ -281,8 +281,16 @@ async function checkAllMachines() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-            }
+            },
+            body: JSON.stringify({})
         });
+        
+        // Check if response is OK
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ Server returned ${response.status}: ${errorText}`);
+            throw new Error(`Server returned ${response.status}: ${errorText.substring(0, 100)}`);
+        }
         
         const data = await response.json();
         const endTime = performance.now();
