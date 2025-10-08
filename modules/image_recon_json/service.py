@@ -218,11 +218,13 @@ class ImageReconJsonService:
                     "skipT": 20,
                     "sleepT": 333,
                     "jackpotId": "0",
-                    "poolType": pool_type,
                     "gamelist": []
                 }
                 
-                logger.info(f"✅ Added poolType={pool_type} to pool entry")
+                # Only add poolType for BZZF machines
+                if machine_type == "BZZF":
+                    pool_entry["poolType"] = pool_type
+                    logger.info(f"✅ Added poolType={pool_type} to pool entry for BZZF")
                 
                 for stream in pool_streams_chunk:
                     stream_id = stream[0]

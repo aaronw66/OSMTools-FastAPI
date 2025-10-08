@@ -59,10 +59,6 @@ function formatJSONWithSyntaxHighlighting(jsonString) {
         const parsed = JSON.parse(jsonString);
         let formatted = JSON.stringify(parsed, null, 4);
         
-        // Fix brace alignment - ensure opening braces are at the leftmost position
-        formatted = formatted.replace(/^(\s+)(\{)/gm, '$2');
-        formatted = formatted.replace(/^(\s+)(\[)/gm, '$2');
-        
         // Add syntax highlighting
         return formatted
             .replace(/("[\w\-_]+")(\s*:)/g, '<span class="json-key">$1</span>$2')
