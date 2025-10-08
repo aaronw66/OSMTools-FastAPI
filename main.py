@@ -52,25 +52,29 @@ async def refresh_version_cache_periodically():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events"""
-    # Startup: Warm up cache immediately, then start background task
-    print("🚀 Warming up version cache on startup...")
-    global shared_service_manager
-    try:
-        servers = shared_service_manager.get_image_recon_servers()
-        if servers:
-            print(f"📊 Pre-caching versions for {len(servers)} servers...")
-            for server in servers[:5]:  # Cache first 5 servers immediately for fast initial load
-                try:
-                    version = shared_service_manager._get_server_version(server['ip'])
-                    print(f"✅ [Startup] Cached {server['hostname']}: {version}")
-                except Exception as e:
-                    print(f"⚠️ [Startup] Failed to cache {server['hostname']}: {e}")
-            print("✅ Initial cache warm-up completed")
-    except Exception as e:
-        print(f"⚠️ Cache warm-up error: {e}")
-    
+    # Startup: Start background task immediately (no blocking warm-up)
+    print("🚀 Application starting up...")
     print("🔄 Starting background version cache refresh task (every 10 minutes)...")
     task = asyncio.create_task(refresh_version_cache_periodically())
+    
+    # Start cache warm-up in background (non-blocking)
+    async def warm_up_cache():
+        global shared_service_manager
+        try:
+            print("📊 Background cache warm-up started...")
+            servers = shared_service_manager.get_image_recon_servers()
+            if servers:
+                for server in servers[:5]:  # Cache first 5 servers
+                    try:
+                        version = shared_service_manager._get_server_version(server['ip'])
+                        print(f"✅ [Warm-up] Cached {server['hostname']}: {version}")
+                    except Exception as e:
+                        print(f"⚠️ [Warm-up] Failed to cache {server['hostname']}: {e}")
+                print("✅ Background cache warm-up completed")
+        except Exception as e:
+            print(f"⚠️ Cache warm-up error: {e}")
+    
+    asyncio.create_task(warm_up_cache())  # Non-blocking
     
     yield
     
