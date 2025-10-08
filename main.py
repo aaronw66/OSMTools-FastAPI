@@ -18,21 +18,24 @@ from modules.config_editor.router import router as config_editor_router
 # Import service manager for background tasks
 from modules.image_recon_service.service import ImageReconServiceManager
 
+# Create a shared service manager instance for caching
+shared_service_manager = ImageReconServiceManager()
+
 # Background task for version caching
 async def refresh_version_cache_periodically():
     """Background task to refresh version cache every 10 minutes"""
-    service_manager = ImageReconServiceManager()
+    global shared_service_manager
     
     while True:
         try:
             print("🔄 [Background] Starting periodic version cache refresh...")
-            servers = service_manager.get_image_recon_servers()
+            servers = shared_service_manager.get_image_recon_servers()
             
             if servers:
                 # Pre-fetch all versions to populate cache
                 for server in servers:
                     try:
-                        version = service_manager._get_server_version(server['ip'])
+                        version = shared_service_manager._get_server_version(server['ip'])
                         print(f"✅ [Background] Cached version for {server['hostname']}: {version}")
                     except Exception as e:
                         print(f"⚠️ [Background] Failed to cache version for {server['hostname']}: {e}")
@@ -51,14 +54,14 @@ async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events"""
     # Startup: Warm up cache immediately, then start background task
     print("🚀 Warming up version cache on startup...")
-    service_manager = ImageReconServiceManager()
+    global shared_service_manager
     try:
-        servers = service_manager.get_image_recon_servers()
+        servers = shared_service_manager.get_image_recon_servers()
         if servers:
             print(f"📊 Pre-caching versions for {len(servers)} servers...")
             for server in servers[:5]:  # Cache first 5 servers immediately for fast initial load
                 try:
-                    version = service_manager._get_server_version(server['ip'])
+                    version = shared_service_manager._get_server_version(server['ip'])
                     print(f"✅ [Startup] Cached {server['hostname']}: {version}")
                 except Exception as e:
                     print(f"⚠️ [Startup] Failed to cache {server['hostname']}: {e}")

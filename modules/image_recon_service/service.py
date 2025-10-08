@@ -93,11 +93,27 @@ class ImageReconServiceManager:
         self.last_cache_update = 0
         self.cache_ttl = 300  # 5 minutes cache
         
+        # Server list cache (to avoid re-reading image-recon.json every time)
+        self._server_list_cache = None
+        self._server_list_cache_time = 0
+        self._server_list_cache_ttl = 60  # 1 minute cache for server list
+        
         # Ensure email config exists
         self._ensure_email_config()
     
     def get_image_recon_servers(self) -> List[Dict]:
-        """Get list of server IPs from image-recon.json"""
+        """Get list of server IPs from image-recon.json with caching"""
+        import time
+        
+        # Check cache first
+        current_time = time.time()
+        if (self._server_list_cache is not None and 
+            current_time - self._server_list_cache_time < self._server_list_cache_ttl):
+            print(f"✅ Using cached server list ({len(self._server_list_cache)} servers)")
+            return self._server_list_cache
+        
+        print("🔄 Loading server list from file...")
+        
         # Try multiple possible paths for the image-recon.json file
         json_file_paths = [
             '/opt/compose-conf/prometheus/config/conf.d/node/image-recon.json',
@@ -134,6 +150,11 @@ class ImageReconServiceManager:
                                 })
                 
                 print(f"✅ Loaded {len(servers)} servers from: {json_file_path}")
+                
+                # Cache the result
+                self._server_list_cache = servers
+                self._server_list_cache_time = current_time
+                
                 return servers
             except Exception as e:
                 print(f"❌ Error reading {json_file_path}: {e}")
@@ -141,7 +162,13 @@ class ImageReconServiceManager:
         
         # If no config files found, use mock data
         print("⚠️ No config files found in any location - using mock data for development")
-        return self._get_mock_servers()
+        mock_servers = self._get_mock_servers()
+        
+        # Cache mock data too
+        self._server_list_cache = mock_servers
+        self._server_list_cache_time = current_time
+        
+        return mock_servers
 
     
     def _get_mock_servers(self) -> List[Dict]:

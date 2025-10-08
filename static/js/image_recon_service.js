@@ -131,6 +131,16 @@ function displaySearchResults(results) {
 // =====================
 async function loadServers() {
     const startTime = performance.now();
+    
+    // Show loading state immediately
+    const serverContainer = document.getElementById('server-container');
+    serverContainer.innerHTML = `
+        <div class="loading-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading servers...</p>
+        </div>
+    `;
+    
     try {
         console.log('📡 Fetching server list...');
         const response = await fetch('/image-recon-service/get-servers');
@@ -141,7 +151,11 @@ async function loadServers() {
             console.log(`✅ Loaded ${data.servers.length} servers in ${(endTime - startTime).toFixed(2)}ms`);
             availableServers = data.servers;
             displayServers();
-            loadServerVersions();
+            
+            // Load versions in background (don't await)
+            loadServerVersions().catch(error => {
+                console.error('❌ Error loading versions:', error);
+            });
         } else {
             console.error('❌ Failed to load servers:', data.message);
             showError('Failed to load servers: ' + data.message);
