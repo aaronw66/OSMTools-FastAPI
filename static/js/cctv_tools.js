@@ -391,6 +391,51 @@ async function checkStatus() {
     }
 }
 
+async function refreshCheckStatus() {
+    if (uploadedDevices.length === 0) {
+        showAlert('No devices to refresh', 'error');
+        return;
+    }
+    
+    console.log('🔄 Refreshing status check...');
+    
+    // Show loading indicator in results modal
+    const resultsContent = document.getElementById('resultsContent');
+    const originalContent = resultsContent.innerHTML;
+    resultsContent.innerHTML = '<div style="text-align: center; padding: 40px; color: #2196F3;"><i class="fas fa-spinner fa-spin" style="font-size: 32px;"></i><p style="margin-top: 15px;">Thinking...</p></div>';
+    
+    try {
+        const response = await fetch('/cctv-tools/check-status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                devices: uploadedDevices
+            })
+        });
+        
+        const data = await response.json();
+        
+        console.log('✅ Refresh check status response:', data);
+        console.log(`📊 Results: ${data.results?.length || 0} devices processed`);
+        
+        if (data.status === 'success') {
+            operationResults = data.results;
+            // Update the modal with new results
+            showResultsModal('Device Status Check Results', data.results);
+        } else {
+            console.error('Status refresh failed:', data.message);
+            resultsContent.innerHTML = originalContent;
+            showAlert('Status refresh failed: ' + data.message, 'error');
+        }
+    } catch (error) {
+        console.error('❌ Status refresh error:', error);
+        resultsContent.innerHTML = originalContent;
+        showAlert('Status refresh error: ' + error.message, 'error');
+    }
+}
+
 async function rebootDevices(devices = null) {
     // Use provided devices or default to uploaded devices
     const devicesToReboot = devices || uploadedDevices;
@@ -473,40 +518,57 @@ function showProgressModal(title, message) {
     progressFill.style.animation = 'none'; // Remove pulse animation
     
     const total = uploadedDevices.length;
+    const batchSize = 10;
+    const totalBatches = Math.ceil(total / batchSize);
     
-    // Initialize stats with actual device count
+    // Initialize with batch processing animation instead of static stats
     if (progressStats) {
         progressStats.innerHTML = `
-            <div class="stat-item">
-                <div class="stat-number" id="statCompleted">0</div>
-                <div class="stat-label">Completed</div>
-            </div>
-            <div class="stat-item stat-online">
-                <div class="stat-number" id="statOnline">0</div>
-                <div class="stat-label">Online</div>
-            </div>
-            <div class="stat-item stat-offline">
-                <div class="stat-number" id="statOffline">0</div>
-                <div class="stat-label">Offline</div>
-            </div>
-            <div class="stat-item stat-remaining">
-                <div class="stat-number" id="statRemaining">${total}</div>
-                <div class="stat-label">Remaining</div>
+            <div class="batch-progress-container">
+                <div class="batch-info">
+                    <div class="batch-label">Processing in batches of ${batchSize}</div>
+                    <div class="batch-status" id="batchStatus">Starting batch 1 of ${totalBatches}...</div>
+                </div>
+                <div class="batch-animation" id="batchAnimation">
+                    <div class="batch-dots">
+                        <span class="batch-dot"></span>
+                        <span class="batch-dot"></span>
+                        <span class="batch-dot"></span>
+                        <span class="batch-dot"></span>
+                        <span class="batch-dot"></span>
+                        <span class="batch-dot"></span>
+                        <span class="batch-dot"></span>
+                        <span class="batch-dot"></span>
+                        <span class="batch-dot"></span>
+                        <span class="batch-dot"></span>
+                    </div>
+                </div>
             </div>
         `;
     }
     
     modal.style.display = 'block';
     
-    // Simulate progress like the old Flask version
+    // Simulate batch progress animation
     let progress = 10;
+    let currentBatch = 1;
     const progressInterval = setInterval(() => {
-        progress += Math.random() * 20;
+        progress += Math.random() * 15;
         if (progress > 90) progress = 90; // Cap at 90% until real results come back
         progressFill.style.width = progress + '%';
         
+        // Calculate current batch based on progress
+        const estimatedBatch = Math.min(Math.floor((progress / 100) * totalBatches) + 1, totalBatches);
+        if (estimatedBatch !== currentBatch) {
+            currentBatch = estimatedBatch;
+            const batchStatus = document.getElementById('batchStatus');
+            if (batchStatus) {
+                batchStatus.textContent = `Processing batch ${currentBatch} of ${totalBatches}...`;
+            }
+        }
+        
         if (progress > 30 && progress < 60) {
-            progressDetails.textContent = `Processing ${total} device${total !== 1 ? 's' : ''}...`;
+            progressDetails.textContent = `Processing ${total} devices in ${totalBatches} batch${totalBatches !== 1 ? 'es' : ''}...`;
         } else if (progress >= 60) {
             progressDetails.textContent = 'Finalizing operation...';
         }
@@ -515,7 +577,7 @@ function showProgressModal(title, message) {
     // Store interval for cleanup
     modal.progressInterval = progressInterval;
     
-    console.log(`📊 Progress modal showing: ${total} devices`);
+    console.log(`📊 Progress modal showing: ${total} devices in ${totalBatches} batches`);
 }
 
 function hideProgressModal() {

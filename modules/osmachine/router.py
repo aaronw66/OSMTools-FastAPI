@@ -113,11 +113,12 @@ async def restart_machine(request: Request):
 
 @router.post("/batch-check-status")
 async def batch_check_status(request: Request):
-    """Check status of multiple machines concurrently"""
+    """Check status of multiple machines concurrently with caching"""
     try:
         data = await request.json()
         group_name = data.get('group_name')
         max_concurrent = data.get('max_concurrent', 20)
+        force_refresh = data.get('force_refresh', False)
         
         machines = service.read_machines_from_lognavigator()
         
@@ -128,7 +129,7 @@ async def batch_check_status(request: Request):
             }, status_code=404)
         
         group_machines = machines[group_name]
-        results = service.batch_check_status(group_machines, max_concurrent)
+        results = service.batch_check_status(group_machines, max_concurrent, use_cache=not force_refresh)
         
         # Calculate health summary
         online_count = sum(1 for r in results.values() if r['status'] == 'online')
@@ -160,8 +161,11 @@ async def batch_check_status(request: Request):
 
 @router.post("/check-all-machines")
 async def check_all_machines(request: Request):
-    """Check status of ALL machines with optimized performance"""
+    """Check status of ALL machines with optimized performance and caching"""
     try:
+        data = await request.json() if request.headers.get('content-type') == 'application/json' else {}
+        force_refresh = data.get('force_refresh', False)
+        
         machines = service.read_machines_from_lognavigator()
         
         if not machines:
@@ -177,10 +181,10 @@ async def check_all_machines(request: Request):
                 machine['group_name'] = group_name
                 all_machines.append(machine)
         
-        service.logger.info(f"🚀 Starting bulk status check for {len(all_machines)} machines...")
+        service.logger.info(f"🚀 Starting bulk status check for {len(all_machines)} machines (force_refresh={force_refresh})...")
         
-        # Use high concurrency for bulk operations
-        results = service.batch_check_status(all_machines, max_concurrent=30)
+        # Use high concurrency for bulk operations with caching
+        results = service.batch_check_status(all_machines, max_concurrent=30, use_cache=not force_refresh)
         
         # Calculate overall health
         online_count = sum(1 for r in results.values() if r['status'] == 'online')
@@ -250,8 +254,11 @@ async def get_machine_logs(request: Request):
 
 @router.post("/refresh-machines")
 async def refresh_machines(request: Request):
-    """Refresh machine list"""
+    """Refresh machine list and clear cache"""
     try:
+        # Clear cache when refreshing
+        service.clear_status_cache()
+        
         result = service.refresh_machines()
         
         if result['status'] == 'error':
@@ -261,6 +268,22 @@ async def refresh_machines(request: Request):
         
     except Exception as e:
         service.logger.error(f"❌ Error refreshing machine list: {str(e)}")
+        return JSONResponse(content={
+            "status": "error",
+            "message": str(e)
+        }, status_code=500)
+
+@router.post("/clear-cache")
+async def clear_cache(request: Request):
+    """Clear machine status cache"""
+    try:
+        service.clear_status_cache()
+        return JSONResponse(content={
+            "status": "success",
+            "message": "Machine status cache cleared successfully"
+        })
+    except Exception as e:
+        service.logger.error(f"❌ Error clearing cache: {str(e)}")
         return JSONResponse(content={
             "status": "error",
             "message": str(e)

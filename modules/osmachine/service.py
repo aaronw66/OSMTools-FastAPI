@@ -11,6 +11,9 @@ from logging.handlers import RotatingFileHandler
 # Setup dedicated logger
 def setup_osmachine_logger():
     """Set up dedicated logger for OSMachine tool"""
+    import pytz
+    from datetime import datetime
+    
     LOG_DIR = "./logs"
     LOG_FILE = os.path.join(LOG_DIR, "osmachine.log")
     os.makedirs(LOG_DIR, exist_ok=True)
@@ -24,7 +27,17 @@ def setup_osmachine_logger():
     file_handler = RotatingFileHandler(LOG_FILE, maxBytes=10*1024*1024, backupCount=5)
     file_handler.setLevel(logging.INFO)
     
-    formatter = logging.Formatter('%(asctime)s [%(levelname)s] [OSMachine] %(message)s')
+    # Custom formatter with Malaysia timezone
+    class MalaysiaFormatter(logging.Formatter):
+        def formatTime(self, record, datefmt=None):
+            dt = datetime.fromtimestamp(record.created, pytz.timezone('Asia/Kuala_Lumpur'))
+            if datefmt:
+                s = dt.strftime(datefmt)
+            else:
+                s = dt.strftime('%Y-%m-%d %H:%M:%S')
+            return s
+    
+    formatter = MalaysiaFormatter('%(asctime)s [%(levelname)s] [OSMachine] %(message)s')
     file_handler.setFormatter(formatter)
     
     logger.addHandler(file_handler)
@@ -63,7 +76,7 @@ ALLOWED_GROUPS = [
     'LUCKYLINK_NCH'
 ]
 
-# Group categorization
+# Group categorization - All in one OSM Production category
 GROUP_CATEGORIES = {
     'OSM Production': [
         'OSM_CP',
@@ -71,15 +84,11 @@ GROUP_CATEGORIES = {
         'OSM_TBR',
         'OSM_WF',
         'OSM_NCH',
-        'OSM_DHS'
-    ],
-    'Gaming Platforms': [
+        'OSM_DHS',
         'OSM_MDR',
+        'OSM_NP',
         'OSM_LUCKYLINK',
         'LUCKYLINK_NCH'
-    ],
-    'Regional Sites': [
-        'OSM_NP'
     ]
 }
 
@@ -109,6 +118,11 @@ class OSMachineService:
     def __init__(self):
         self.logger = logger
         self.logger.info("🚀 OSMachine service initialized")
+        
+        # Cache for machine status (10 minute TTL)
+        self._status_cache = {}
+        self._status_cache_time = {}
+        self._status_cache_ttl = 600  # 10 minutes in seconds
     
     def is_group_allowed(self, group_name: str) -> bool:
         """Check if a group is in the allowed list"""
@@ -350,13 +364,37 @@ class OSMachineService:
                 return False, "Connection timeout"
             return False, f"Error: {error_msg}"
     
-    def batch_check_status(self, machines: List[Dict], max_concurrent: int = 20) -> Dict:
-        """Check status of multiple machines concurrently"""
+    def batch_check_status(self, machines: List[Dict], max_concurrent: int = 20, use_cache: bool = True) -> Dict:
+        """Check status of multiple machines concurrently with caching"""
         from threading import Lock
+        import time
         
         results = {}
         lock = Lock()
+        machines_to_check = []
+        current_time = time.time()
         
+        # Check cache first
+        for machine in machines:
+            ip = machine['ip']
+            
+            if use_cache and ip in self._status_cache:
+                cache_age = current_time - self._status_cache_time.get(ip, 0)
+                
+                if cache_age < self._status_cache_ttl:
+                    # Use cached result
+                    cached_result = self._status_cache[ip].copy()
+                    cached_result['cached'] = True
+                    cached_result['cache_age_seconds'] = int(cache_age)
+                    results[ip] = cached_result
+                    continue
+            
+            # Need to check this machine
+            machines_to_check.append(machine)
+        
+        self.logger.info(f"📊 Batch status check: {len(machines)} total, {len(results)} from cache, {len(machines_to_check)} to check")
+        
+        # Check remaining machines
         def check_single_machine(machine):
             ip = machine['ip']
             try:
@@ -364,20 +402,33 @@ class OSMachineService:
             except Exception:
                 status = 'error'
             
+            result = {
+                'ip': ip,
+                'config_id': machine['config_id'],
+                'display_group': machine['display_group'],
+                'status': status,
+                'timestamp': datetime.now().isoformat(),
+                'cached': False
+            }
+            
             with lock:
-                results[ip] = {
-                    'ip': ip,
-                    'config_id': machine['config_id'],
-                    'display_group': machine['display_group'],
-                    'status': status,
-                    'timestamp': datetime.now().isoformat()
-                }
+                results[ip] = result
+                # Update cache
+                self._status_cache[ip] = result.copy()
+                self._status_cache_time[ip] = time.time()
         
-        with futures.ThreadPoolExecutor(max_workers=max_concurrent) as executor:
-            future_list = [executor.submit(check_single_machine, machine) for machine in machines]
-            futures.wait(future_list)
+        if machines_to_check:
+            with futures.ThreadPoolExecutor(max_workers=max_concurrent) as executor:
+                future_list = [executor.submit(check_single_machine, machine) for machine in machines_to_check]
+                futures.wait(future_list)
         
         return results
+    
+    def clear_status_cache(self):
+        """Clear the machine status cache"""
+        self._status_cache.clear()
+        self._status_cache_time.clear()
+        self.logger.info("🗑️ Machine status cache cleared")
     
     def restart_machine(self, ip: str, operation_mode: str = 'soft_restart') -> tuple:
         """Restart a machine via SSH with different operation modes"""

@@ -405,47 +405,78 @@ body {
 }
 
 .progress-stats {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 15px;
     margin: 25px 0;
     padding: 20px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 8px;
 }
 
-.stat-item {
+/* Batch Processing Animation */
+.batch-progress-container {
     text-align: center;
-    padding: 15px 10px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    border-left: 4px solid #17a2b8;
 }
 
-.stat-item.stat-online {
-    border-left-color: #28a745;
+.batch-info {
+    margin-bottom: 20px;
 }
 
-.stat-item.stat-offline {
-    border-left-color: #dc3545;
-}
-
-.stat-item.stat-remaining {
-    border-left-color: #6c757d;
-}
-
-.stat-number {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #f0f6fc;
-    margin-bottom: 5px;
-}
-
-.stat-label {
-    font-size: 0.85rem;
+.batch-label {
+    font-size: 0.9rem;
     color: #8b949e;
+    margin-bottom: 8px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+}
+
+.batch-status {
+    font-size: 1.1rem;
+    color: #2196F3;
+    font-weight: 600;
+    margin-top: 5px;
+}
+
+.batch-animation {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 30px 0;
+}
+
+.batch-dots {
+    display: flex;
+    gap: 12px;
+}
+
+.batch-dot {
+    width: 14px;
+    height: 14px;
+    background: linear-gradient(135deg, #2196F3, #1565C0);
+    border-radius: 50%;
+    animation: batchPulse 1.5s ease-in-out infinite;
+    box-shadow: 0 0 10px rgba(33, 150, 243, 0.5);
+}
+
+.batch-dot:nth-child(1) { animation-delay: 0s; }
+.batch-dot:nth-child(2) { animation-delay: 0.15s; }
+.batch-dot:nth-child(3) { animation-delay: 0.3s; }
+.batch-dot:nth-child(4) { animation-delay: 0.45s; }
+.batch-dot:nth-child(5) { animation-delay: 0.6s; }
+.batch-dot:nth-child(6) { animation-delay: 0.75s; }
+.batch-dot:nth-child(7) { animation-delay: 0.9s; }
+.batch-dot:nth-child(8) { animation-delay: 1.05s; }
+.batch-dot:nth-child(9) { animation-delay: 1.2s; }
+.batch-dot:nth-child(10) { animation-delay: 1.35s; }
+
+@keyframes batchPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.5;
+    }
+    50% {
+        transform: scale(1.5);
+        opacity: 1;
+        box-shadow: 0 0 20px rgba(33, 150, 243, 0.8);
+    }
 }
 
 .progress-details {
@@ -460,7 +491,17 @@ body {
 .results-modal-content {
     max-width: 1200px !important;
     max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.results-table-container {
+    flex: 1;
     overflow-y: auto;
+    overflow-x: auto;
+    margin: 20px 0;
+    min-height: 0;
 }
 
 /* Summary Stats */

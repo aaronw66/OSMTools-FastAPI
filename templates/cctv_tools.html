@@ -6,7 +6,7 @@
     <title>CCTV Batch Configuration Tool</title>
     <link rel="icon" href="/static/zy.ico" type="image/x-icon">
     <link rel="stylesheet" href="/static/css/common.css?v=4">
-    <link rel="stylesheet" href="/static/css/cctv_tools.css?v=20251007d">
+    <link rel="stylesheet" href="/static/css/cctv_tools.css?v=20251008e">
 </head>
 <body>
     {% include 'navbar.html' %}
@@ -142,9 +142,12 @@ IP,Room,User,UserSig<br>
             <span class="close" onclick="closeResultsModal()">&times;</span>
             <h3 id="resultsTitle">Operation Results</h3>
             <div id="resultsSummary"></div>
-            <div id="resultsContent"></div>
-            <div style="margin-top: 20px; text-align: center;">
+            <div class="results-table-container">
+                <div id="resultsContent"></div>
+            </div>
+            <div class="modal-actions" style="margin-top: 20px;">
                 <button class="btn btn-secondary" onclick="closeResultsModal()">Close</button>
+                <button class="btn btn-success" onclick="refreshCheckStatus()">🔄 Refresh Status</button>
                 <button class="btn btn-primary" onclick="downloadResults()">📥 Download CSV</button>
             </div>
         </div>
@@ -183,8 +186,8 @@ IP,Room,User,UserSig<br>
         </div>
     </div>
 
-    <link rel="stylesheet" href="/static/css/cctv_tools.css?v=20251008a">
+    <link rel="stylesheet" href="/static/css/cctv_tools.css?v=20251008e">
     <script src="/static/js/common.js?v=1759732258"></script>
-    <script src="/static/js/cctv_tools.js?v=20251008a"></script>
+    <script src="/static/js/cctv_tools.js?v=20251008e"></script>
 </body>
 </html>

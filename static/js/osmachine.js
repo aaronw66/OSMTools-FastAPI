@@ -35,6 +35,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const pageLoadEnd = performance.now();
     console.log(`📊 Total page load time: ${(pageLoadEnd - pageLoadStart).toFixed(2)}ms`);
     console.groupEnd();
+    
+    // Auto-check all machines status on page load
+    console.log('🔄 Auto-checking all machines status...');
+    setTimeout(() => {
+        checkAllMachines();
+    }, 500);
 });
 
 // Search functionality
