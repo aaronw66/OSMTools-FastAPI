@@ -957,7 +957,7 @@ class ImageReconServiceManager:
             # Send email
             logger.info(f"📧 Sending email to {len(recipients)} recipients via {smtp_server}")
             server = smtplib.SMTP(smtp_server, smtp_port)
-                server.starttls()
+            server.starttls()
             server.login(sender_email, sender_password)
             text = msg.as_string()
             server.sendmail(sender_email, recipients, text)
@@ -1421,14 +1421,14 @@ Oct 07 11:45:45 image-recon-server osm[1234]: [INFO] Health check passed
                 has_errors = any(indicator in logs.lower() for indicator in error_indicators)
                 
                 status = "offline" if is_offline else ("error" if has_errors else "online")
-            
-            results.append({
-                "server": server_hostname,
-                "ip": server_ip,
-                "status": status,
-                "version": version,
-                "message": "Service is running" if status == "online" else f"Service has issues: {status}"
-                    })
+                
+                results.append({
+                    "server": server_hostname,
+                    "ip": server_ip,
+                    "status": status,
+                    "version": version,
+                    "message": "Service is running" if status == "online" else f"Service has issues: {status}"
+                })
                 
             except Exception as e:
                 results.append({
@@ -1437,7 +1437,7 @@ Oct 07 11:45:45 image-recon-server osm[1234]: [INFO] Health check passed
                     "status": "error",
                     "version": "Unknown",
                     "message": f"Error checking status: {str(e)}"
-            })
+                })
         
         return {
             "status": "success",
@@ -1533,10 +1533,10 @@ Oct 07 11:45:45 image-recon-server osm[1234]: [INFO] Health check passed
                         "ip": server_ip,
                         "status": "error",
                         "message": msg
-                        })
-                        # Send timeout notification to Lark (matches Flask exactly - with "Timeout" error)
-                        send_lark_notification(server_ip, hostname, "error", msg, "Timeout")
-                        continue
+                    })
+                    # Send timeout notification to Lark (matches Flask exactly - with "Timeout" error)
+                    send_lark_notification(server_ip, hostname, "error", msg, "Timeout")
+                    continue
                     time.sleep(1)
                 
                 # Check exit status
