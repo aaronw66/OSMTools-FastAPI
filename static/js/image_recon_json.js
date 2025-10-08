@@ -130,6 +130,18 @@ async function loadMachineTypes() {
             removeMachineSelect.appendChild(option2);
         });
         
+        // Add event listener to show/hide poolType field
+        machineTypeSelect.addEventListener('change', function() {
+            const poolTypeGroup = document.getElementById('poolTypeGroup');
+            if (this.value === 'BZZF') {
+                poolTypeGroup.style.display = 'block';
+            } else {
+                poolTypeGroup.style.display = 'none';
+                // Reset to 0 when hidden
+                document.getElementById('poolType').value = '0';
+            }
+        });
+        
     } catch (error) {
         console.error('Failed to load machine types:', error);
         CommonUtils.showAlert('Failed to load machine types', 'error');

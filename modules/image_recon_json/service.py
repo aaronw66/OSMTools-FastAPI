@@ -90,8 +90,10 @@ class ImageReconJsonService:
         """Generate JSON configuration"""
         environment = request_data['environment']
         machine_type = request_data['machineType']
-        pool_type = request_data.get('poolType', 0)
+        pool_type = int(request_data.get('poolType', 0)) if request_data.get('poolType') is not None else 0
         screen_type = request_data.get('screenType', 'DUAL')
+        
+        logger.info(f"🔧 Generating JSON: machine_type={machine_type}, pool_type={pool_type} (type: {type(pool_type)})")
         
         # Environment-specific URLs
         urls = {
@@ -222,6 +224,7 @@ class ImageReconJsonService:
                 # Add pooltype if it's not 0
                 if pool_type and pool_type != 0:
                     pool_entry["pooltype"] = pool_type
+                    logger.info(f"✅ Added pooltype={pool_type} to pool entry")
                 
                 for stream in pool_streams_chunk:
                     stream_id = stream[0]
