@@ -3,28 +3,295 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OSMachine</title>
-    <link rel="stylesheet" href="/static/css/common.css">
+    <title>OSMachine - Machine Restart Tool</title>
+    <link rel="stylesheet" href="/static/css/common.css?v=1759732258">
+    <link rel="stylesheet" href="/static/css/osmachine.css?v=20251008a">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="icon" href="/static/zy.ico" type="image/x-icon">
 </head>
 <body>
     {% include 'navbar.html' %}
 
-    <!-- Main Content -->
-    <div class="main-container">
-        <header class="content-header">
-            <h1 class="content-title">OSMachine</h1>
-        </header>
-
-        <main class="content-body">
-            <div class="card">
-                <h2>Machine Management</h2>
-                <p>Machine restart and management operations will be available here.</p>
-                <button class="btn btn-primary">Load Machines</button>
-            </div>
-        </main>
+    <!-- Search and Controls Bar -->
+    <div class="search-controls-bar">
+        <div class="search-box-wrapper">
+            <i class="fas fa-search search-icon-left"></i>
+            <input type="text" id="searchBox" placeholder="🔍 Search by IP, Config ID, or Group..." />
+        </div>
+        <div class="control-buttons">
+            <button class="btn-control btn-refresh" onclick="refreshMachines()" title="Refresh Machine List">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button class="btn-control btn-check-all" onclick="checkAllMachines()" title="Check All Machines Status">
+                <i class="fas fa-heartbeat"></i> Check All
+            </button>
+        </div>
     </div>
 
-    <script src="/static/js/common.js"></script>
+    <!-- Health Summary Dashboard -->
+    <div class="health-summary" id="healthSummary">
+        <div class="health-card total">
+            <div class="health-icon"><i class="fas fa-server"></i></div>
+            <div class="health-info">
+                <div class="health-number" id="totalMachines">0</div>
+                <div class="health-label">Total Machines</div>
+            </div>
+        </div>
+        <div class="health-card online">
+            <div class="health-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="health-info">
+                <div class="health-number" id="onlineMachines">0</div>
+                <div class="health-label">Online</div>
+            </div>
+        </div>
+        <div class="health-card offline">
+            <div class="health-icon"><i class="fas fa-minus-circle"></i></div>
+            <div class="health-info">
+                <div class="health-number" id="offlineMachines">0</div>
+                <div class="health-label">Offline</div>
+            </div>
+        </div>
+        <div class="health-card error">
+            <div class="health-icon"><i class="fas fa-exclamation-triangle"></i></div>
+            <div class="health-info">
+                <div class="health-number" id="errorMachines">0</div>
+                <div class="health-label">Error</div>
+            </div>
+        </div>
+        <div class="health-card checking">
+            <div class="health-icon"><i class="fas fa-spinner fa-spin"></i></div>
+            <div class="health-info">
+                <div class="health-number" id="checkingMachines">0</div>
+                <div class="health-label">Checking</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        <div class="content">
+            {% if categorized_machines %}
+                {% for category, groups in categorized_machines.items() %}
+                <div class="category-section">
+                    <div class="category-header" onclick="toggleCategory('category-{{ loop.index }}')">
+                        <span>{{ category }} <small>({{ groups|length }} groups)</small></span>
+                        <i class="fas fa-chevron-down collapse-icon" id="icon-category-{{ loop.index }}"></i>
+                    </div>
+                    <div class="category-content" id="grid-category-{{ loop.index }}">
+                        {% for group_name, machines in groups.items() %}
+                        <div class="machine-group">
+                            <div class="group-header sub-group" onclick="toggleGroup('{{ group_name }}')">
+                                <span>
+                                    {{ group_name }}
+                                    <span class="group-stats">
+                                        (<span class="online-count" id="online-{{ group_name }}">0</span> online / 
+                                        <span class="offline-count" id="offline-{{ group_name }}">0</span> offline / 
+                                        <span class="error-count" id="error-{{ group_name }}">0</span> error)
+                                    </span>
+                                </span>
+                                <div class="group-actions">
+                                    <button class="btn-group-action" onclick="event.stopPropagation(); checkGroupStatus('{{ group_name }}')" title="Check Group Status">
+                                        <i class="fas fa-heartbeat"></i>
+                                    </button>
+                                    <button class="btn-group-action" onclick="event.stopPropagation(); showBatchRestartModal('{{ group_name }}')" title="Batch Restart Group">
+                                        <i class="fas fa-redo"></i>
+                                    </button>
+                                    <i class="fas fa-chevron-down collapse-icon" id="icon-{{ group_name }}"></i>
+                                </div>
+                            </div>
+                            <div class="machine-grid" id="grid-{{ group_name }}">
+                                {% for machine in machines %}
+                                <div class="machine-card" data-ip="{{ machine.ip }}" data-group="{{ group_name }}" data-config-id="{{ machine.config_id }}">
+                                    <div class="machine-status-indicator" id="status-{{ machine.ip|replace('.', '-') }}">
+                                        <i class="fas fa-circle"></i>
+                                    </div>
+                                    <div class="machine-info">
+                                        <div class="machine-ip">{{ machine.ip }}</div>
+                                        <div class="machine-id">{{ machine.config_id }}</div>
+                                    </div>
+                                    <div class="machine-actions">
+                                        <button class="btn-machine-action btn-check" onclick="checkMachineStatus('{{ machine.ip }}')" title="Check Status">
+                                            <i class="fas fa-heartbeat"></i>
+                                        </button>
+                                        <button class="btn-machine-action btn-restart" onclick="showRestartModal('{{ machine.ip }}', '{{ machine.config_id }}')" title="Restart">
+                                            <i class="fas fa-redo"></i>
+                                        </button>
+                                        <button class="btn-machine-action btn-logs" onclick="showLogsModal('{{ machine.ip }}', '{{ machine.config_id }}')" title="View Logs">
+                                            <i class="fas fa-file-alt"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-server fa-3x"></i>
+                    <h3>No Machines Found</h3>
+                    <p>No machines found in allowed groups. Click "Refresh" to reload the machine list.</p>
+                    <button class="btn btn-primary" onclick="refreshMachines()">
+                        <i class="fas fa-sync-alt"></i> Refresh Machine List
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Restart Modal -->
+    <div id="restartModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeRestartModal()">&times;</span>
+            <h3><i class="fas fa-redo"></i> Restart Machine</h3>
+            <div class="modal-body">
+                <p><strong>Machine IP:</strong> <span id="restartMachineIP"></span></p>
+                <p><strong>Config ID:</strong> <span id="restartMachineID"></span></p>
+                <div class="operation-modes">
+                    <h4>Select Operation Mode:</h4>
+                    <div class="mode-options">
+                        <label class="mode-option">
+                            <input type="radio" name="operationMode" value="soft_restart" checked>
+                            <div class="mode-card">
+                                <div class="mode-icon">🔄</div>
+                                <div class="mode-name">Soft Restart</div>
+                                <div class="mode-desc">Graceful restart of services</div>
+                            </div>
+                        </label>
+                        <label class="mode-option">
+                            <input type="radio" name="operationMode" value="hard_restart">
+                            <div class="mode-card">
+                                <div class="mode-icon">⚡</div>
+                                <div class="mode-name">Hard Restart</div>
+                                <div class="mode-desc">Force restart with delay</div>
+                            </div>
+                        </label>
+                        <label class="mode-option">
+                            <input type="radio" name="operationMode" value="full_reboot">
+                            <div class="mode-card">
+                                <div class="mode-icon">🖥️</div>
+                                <div class="mode-name">Full Reboot</div>
+                                <div class="mode-desc">Complete system reboot</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeRestartModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="executeRestart()">
+                    <i class="fas fa-redo"></i> Restart Machine
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Batch Restart Modal -->
+    <div id="batchRestartModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeBatchRestartModal()">&times;</span>
+            <h3><i class="fas fa-redo"></i> Batch Restart Group</h3>
+            <div class="modal-body">
+                <p><strong>Group:</strong> <span id="batchGroupName"></span></p>
+                <p><strong>Total Machines:</strong> <span id="batchTotalMachines">0</span></p>
+                <div class="operation-modes">
+                    <h4>Select Operation Mode:</h4>
+                    <div class="mode-options">
+                        <label class="mode-option">
+                            <input type="radio" name="batchOperationMode" value="soft_restart" checked>
+                            <div class="mode-card">
+                                <div class="mode-icon">🔄</div>
+                                <div class="mode-name">Soft Restart</div>
+                                <div class="mode-desc">Graceful restart of services</div>
+                            </div>
+                        </label>
+                        <label class="mode-option">
+                            <input type="radio" name="batchOperationMode" value="hard_restart">
+                            <div class="mode-card">
+                                <div class="mode-icon">⚡</div>
+                                <div class="mode-name">Hard Restart</div>
+                                <div class="mode-desc">Force restart with delay</div>
+                            </div>
+                        </label>
+                        <label class="mode-option">
+                            <input type="radio" name="batchOperationMode" value="full_reboot">
+                            <div class="mode-card">
+                                <div class="mode-icon">🖥️</div>
+                                <div class="mode-name">Full Reboot</div>
+                                <div class="mode-desc">Complete system reboot</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <div class="warning-box">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Warning:</strong> This will restart all machines in the group. This operation cannot be undone.
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeBatchRestartModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="executeBatchRestart()">
+                    <i class="fas fa-redo"></i> Restart All Machines
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs Modal -->
+    <div id="logsModal" class="modal">
+        <div class="modal-content logs-modal-content">
+            <span class="close" onclick="closeLogsModal()">&times;</span>
+            <h3><i class="fas fa-file-alt"></i> Machine Logs</h3>
+            <div class="modal-body">
+                <div class="logs-header">
+                    <p><strong>Machine IP:</strong> <span id="logsMachineIP"></span></p>
+                    <p><strong>Config ID:</strong> <span id="logsMachineID"></span></p>
+                    <div class="logs-controls">
+                        <label for="logsDate">Date:</label>
+                        <input type="date" id="logsDate" />
+                        <label for="logsLines">Lines:</label>
+                        <select id="logsLines">
+                            <option value="50">50</option>
+                            <option value="100" selected>100</option>
+                            <option value="200">200</option>
+                            <option value="500">500</option>
+                        </select>
+                        <button class="btn btn-primary btn-sm" onclick="fetchLogs()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="logs-content" id="logsContent">
+                    <div class="loading-state">
+                        <i class="fas fa-spinner fa-spin"></i> Thinking...
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeLogsModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Modal -->
+    <div id="progressModal" class="modal">
+        <div class="modal-content progress-modal-content">
+            <h3 id="progressTitle">Processing...</h3>
+            <div class="progress-info">
+                <p id="progressMessage">Please wait...</p>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="progress-stats">
+                <span id="progressStats">0 / 0 completed</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/common.js?v=1759732258"></script>
+    <script src="/static/js/osmachine.js?v=20251008a"></script>
 </body>
 </html>
