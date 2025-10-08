@@ -11,6 +11,7 @@ services:
       - ./type:/app/type
       - ./uploads:/app/uploads
       - /opt/compose-conf/prometheus:/opt/compose-conf/prometheus:ro
+      - /opt/compose-conf/lognavigator:/opt/compose-conf/lognavigator:ro
     environment:
       - ENVIRONMENT=development
       - LOG_LEVEL=INFO
