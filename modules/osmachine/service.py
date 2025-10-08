@@ -213,14 +213,31 @@ class OSMachineService:
             machines = {}
             total_machines = 0
             filtered_machines = 0
+            all_groups_found = set()
             
             # Find all log-access-config elements
             for config in root.findall('.//log-access-config'):
                 config_id = config.get('id', 'Unknown')
                 url = config.get('url', '')
-                display_group = config.get('display-group', 'Unknown')
+                
+                # Try different attribute names for display group
+                display_group = config.get('display-group', None)
+                if not display_group:
+                    display_group = config.get('displayGroup', None)
+                if not display_group:
+                    display_group = config.get('display_group', None)
+                if not display_group:
+                    display_group = 'Unknown'
+                
+                # Track all groups found for debugging
+                if display_group != 'Unknown':
+                    all_groups_found.add(display_group)
                 
                 total_machines += 1
+                
+                # Debug: Log first 3 machines to see what we're getting
+                if total_machines <= 3:
+                    self.logger.info(f"📋 Sample machine {total_machines}: config_id={config_id}, display_group={display_group}, url={url}")
                 
                 # Filter: Only include machines from allowed groups
                 if not self.is_group_allowed(display_group):
@@ -233,23 +250,33 @@ class OSMachineService:
                 if ':' in ip:
                     ip = ip.split(':')[0]
                 
-                if ip and ip != 'Unknown':
-                    if display_group not in machines:
-                        machines[display_group] = []
-                    
-                    machines[display_group].append({
-                        'ip': ip,
-                        'config_id': config_id,
-                        'display_group': display_group,
-                        'url': url,
-                        'status': 'unknown'
-                    })
+                # Debug: Log if IP extraction failed
+                if not ip or ip == 'Unknown':
+                    self.logger.warning(f"⚠️ Skipping machine {config_id} in group {display_group} - invalid IP from URL: {url}")
+                    continue
+                
+                if display_group not in machines:
+                    machines[display_group] = []
+                
+                machines[display_group].append({
+                    'ip': ip,
+                    'config_id': config_id,
+                    'display_group': display_group,
+                    'url': url,
+                    'status': 'unknown'
+                })
             
             self.logger.info(f"📋 Machine filtering results:")
             self.logger.info(f"   - Total machines in XML: {total_machines}")
             self.logger.info(f"   - Filtered machines (allowed): {filtered_machines}")
             self.logger.info(f"   - Excluded machines: {total_machines - filtered_machines}")
+            self.logger.info(f"   - All unique groups found in XML: {sorted(list(all_groups_found))}")
+            self.logger.info(f"   - Allowed groups configured: {ALLOWED_GROUPS}")
             self.logger.info(f"   - Allowed groups found: {list(machines.keys())}")
+            self.logger.info(f"   - Total machines added to result: {sum(len(m) for m in machines.values())}")
+            
+            if not machines:
+                self.logger.error("❌ No machines found after filtering! Check if allowed groups match XML groups.")
             
             return machines
             
