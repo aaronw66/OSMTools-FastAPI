@@ -219,6 +219,10 @@ class ImageReconJsonService:
                     "gamelist": []
                 }
                 
+                # Add pooltype if it's not 0
+                if pool_type and pool_type != 0:
+                    pool_entry["pooltype"] = pool_type
+                
                 for stream in pool_streams_chunk:
                     stream_id = stream[0]
                     stream_num = re.findall(r'\d+', stream_id)
