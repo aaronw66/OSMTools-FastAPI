@@ -218,13 +218,11 @@ class ImageReconJsonService:
                     "skipT": 20,
                     "sleepT": 333,
                     "jackpotId": "0",
+                    "poolType": pool_type,
                     "gamelist": []
                 }
                 
-                # Add pooltype if it's not 0
-                if pool_type and pool_type != 0:
-                    pool_entry["pooltype"] = pool_type
-                    logger.info(f"✅ Added pooltype={pool_type} to pool entry")
+                logger.info(f"✅ Added poolType={pool_type} to pool entry")
                 
                 for stream in pool_streams_chunk:
                     stream_id = stream[0]
