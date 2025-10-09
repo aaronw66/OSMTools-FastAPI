@@ -14,8 +14,8 @@ class MachineTypeRequest(BaseModel):
 
 class ServerInfo(BaseModel):
     ip: str
-    hostname: str
-    label: str
+    hostname: Optional[str] = ""
+    label: Optional[str] = ""
 
 class SendJsonRequest(BaseModel):
     json_content: str

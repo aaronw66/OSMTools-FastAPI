@@ -270,9 +270,9 @@ body {
 .category-content {
     transition: all 0.3s ease;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 15px;
-    padding: 20px;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    padding: 15px;
 }
 
 .category-content.collapsed {
@@ -380,15 +380,15 @@ body {
 .machine-card {
     background: linear-gradient(135deg, rgba(30, 30, 46, 0.9), rgba(40, 40, 60, 0.9));
     border: 2px solid rgba(102, 126, 234, 0.2);
-    border-radius: 10px;
-    padding: 12px;
+    border-radius: 8px;
+    padding: 10px;
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    min-height: 140px;
+    gap: 8px;
+    min-height: 120px;
 }
 
 .machine-card::before {
@@ -484,14 +484,14 @@ body {
 }
 
 .machine-ip {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: #2196F3;
     word-break: break-all;
 }
 
 .machine-id {
-    font-size: 11px;
+    font-size: 10px;
     color: rgba(255, 255, 255, 0.6);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -506,14 +506,13 @@ body {
 
 .btn-machine-action {
     flex: 1;
-    padding: 6px;
+    padding: 5px;
     border: none;
-    border-radius: 6px;
-    font-size: 12px;
+    border-radius: 5px;
+    font-size: 11px;
     color: white;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-size: 14px;
 }
 
 .btn-check {
