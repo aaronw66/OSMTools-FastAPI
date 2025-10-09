@@ -137,15 +137,6 @@
                     </div>
                 </div>
                 {% endfor %}
-            {% else %}
-                <div class="empty-state">
-                    <i class="fas fa-server fa-3x"></i>
-                    <h3>No Machines Found</h3>
-                    <p>No machines found in allowed groups. Click "Refresh" to reload the machine list.</p>
-                    <button class="btn btn-primary" onclick="refreshMachines()">
-                        <i class="fas fa-sync-alt"></i> Refresh Machine List
-                    </button>
-                </div>
             {% endif %}
         </div>
     </div>
