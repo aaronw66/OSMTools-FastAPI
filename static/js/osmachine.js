@@ -1,4 +1,5 @@
 // OSMachine - Frontend Logic
+console.log('🔧 osmachine.js file loaded!');
 console.group('🖥️ OSMachine');
 const pageLoadStart = performance.now();
 const initStart = performance.now();
