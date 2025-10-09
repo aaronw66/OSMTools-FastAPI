@@ -552,42 +552,22 @@ async function fetchLogs() {
     }
 }
 
-// Refresh machines
+// Refresh machines - reload the studio list
 async function refreshMachines() {
-    console.log(`🔄 Refreshing machine list...`);
+    console.log(`🔄 Refreshing studio list...`);
     const startTime = performance.now();
     
-    showProgressModal('Refreshing Machine List', 'Fetching latest machine data...');
-    
     try {
-        const response = await fetch('/osmachine/refresh-machines', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
+        // Force reload the studio list from server
+        await loadStudioList();
         
-        const data = await response.json();
         const endTime = performance.now();
-        
-        hideProgressModal();
-        
-        if (data.status === 'success') {
-            console.log(`✅ Machine list refreshed in ${(endTime - startTime).toFixed(2)}ms`);
-            showAlert(data.message, 'success');
-            // Reload the page to show updated machine list
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
-        } else {
-            console.error(`❌ Refresh failed: ${data.message}`);
-            showAlert(`Refresh failed: ${data.message}`, 'error');
-        }
+        console.log(`✅ Studio list refreshed in ${(endTime - startTime).toFixed(2)}ms`);
+        showAlert('Studio list refreshed successfully', 'success');
         
     } catch (error) {
-        console.error(`❌ Error refreshing machines:`, error);
-        hideProgressModal();
-        showAlert(`Error refreshing machines: ${error.message}`, 'error');
+        console.error(`❌ Error refreshing studio list:`, error);
+        showAlert(`Error refreshing studio list: ${error.message}`, 'error');
     }
 }
 
