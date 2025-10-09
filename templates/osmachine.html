@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OSMachine - Machine Restart Tool</title>
     <link rel="stylesheet" href="/static/css/common.css?v=1759732258">
-    <link rel="stylesheet" href="/static/css/osmachine.css?v=20251008i">
+    <link rel="stylesheet" href="/static/css/osmachine.css?v=20251008k">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="icon" href="/static/zy.ico" type="image/x-icon">
 </head>
@@ -22,7 +22,7 @@
         </div>
         <div class="global-search-wrapper">
             <i class="fas fa-search search-icon-left"></i>
-            <input type="text" id="globalSearchBox" placeholder="Search machines..." onkeyup="handleGlobalSearch()" />
+            <input type="text" id="globalSearchBox" placeholder="Search machines..." onkeydown="if(event.key==='Enter'){event.preventDefault();handleGlobalSearch();}" />
         </div>
         <div class="control-buttons">
             <button class="btn-control btn-refresh" onclick="refreshMachines()" title="Refresh Machine List" id="refreshBtn">
@@ -301,6 +301,6 @@
     </div>
 
     <script src="/static/js/common.js?v=1759732258"></script>
-    <script src="/static/js/osmachine.js?v=20251008i"></script>
+    <script src="/static/js/osmachine.js?v=20251008k"></script>
 </body>
 </html>

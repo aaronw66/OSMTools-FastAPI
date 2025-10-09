@@ -32,7 +32,7 @@ body {
 .global-search-wrapper {
     position: relative;
     width: 100%;
-    max-width: 100%;
+    max-width: 500px;
     justify-self: center;
 }
 
@@ -403,6 +403,23 @@ body {
 
 .machine-card:hover::before {
     opacity: 1;
+}
+
+.machine-card.highlighted {
+    animation: pulseHighlight 1.5s ease-in-out 3;
+    border-color: #2196F3 !important;
+    box-shadow: 0 0 30px rgba(33, 150, 243, 0.6) !important;
+}
+
+@keyframes pulseHighlight {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 30px rgba(33, 150, 243, 0.6);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 50px rgba(33, 150, 243, 0.9);
+    }
 }
 
 .machine-status-indicator {

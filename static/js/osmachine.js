@@ -11,6 +11,8 @@ let currentBatchGroup = '';
 let machineStatusCache = {};
 let allMachinesData = null;
 let currentSelectedStudio = '';
+let autoRefreshInterval = null;
+let isAutoRefreshEnabled = true;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
@@ -30,6 +32,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Load studio list
     loadStudioList();
+    
+    // Start auto-refresh immediately
+    startAutoRefresh();
     
     const initEnd = performance.now();
     console.log(`✅ OSMachine initialization complete in ${(initEnd - initStart).toFixed(2)}ms`);
@@ -675,33 +680,81 @@ function handleStudioChange() {
     console.log(`📍 Studio selected: ${selectedStudio}`);
 }
 
-// Global search across all studios to find machine location
+// Global search across all studios to find and highlight machines
 function handleGlobalSearch() {
-    const searchTerm = document.getElementById('globalSearchBox').value.trim();
+    const searchTerm = document.getElementById('globalSearchBox').value.trim().toLowerCase();
+    const machineCards = document.querySelectorAll('.machine-card');
     
-    if (!searchTerm || !allMachinesData) {
+    // Remove all previous highlights first
+    document.querySelectorAll('.machine-card.highlighted').forEach(card => {
+        card.classList.remove('highlighted');
+    });
+    
+    if (!searchTerm) {
+        console.log('🔍 Search cleared');
         return;
     }
     
     console.log(`🔍 Global search for: "${searchTerm}"`);
     
-    // Search across all studios
-    let found = false;
-    for (const [studioName, machines] of Object.entries(allMachinesData)) {
-        for (const machine of machines) {
-            if (machine.ip.includes(searchTerm) || machine.config_id.toLowerCase().includes(searchTerm.toLowerCase())) {
-                console.log(`✅ Found machine ${machine.ip} (${machine.config_id}) in studio: ${studioName}`);
-                showAlert(`Machine ${machine.ip} (${machine.config_id}) is in studio: ${studioName}`, 'success');
-                found = true;
-                break;
-            }
-        }
-        if (found) break;
-    }
+    let foundCount = 0;
+    let foundMachines = [];
     
-    if (!found) {
-        console.log(`❌ Machine not found: "${searchTerm}"`);
-        showAlert(`Machine "${searchTerm}" not found in any studio`, 'error');
+    // Check all machines for matches (but don't hide any)
+    machineCards.forEach(card => {
+        const ip = card.getAttribute('data-ip')?.toLowerCase() || '';
+        const configId = card.getAttribute('data-config-id')?.toLowerCase() || '';
+        const machineIp = card.querySelector('.machine-ip')?.textContent.toLowerCase() || '';
+        const machineId = card.querySelector('.machine-id')?.textContent.toLowerCase() || '';
+        
+        if (ip.includes(searchTerm) || configId.includes(searchTerm) || machineIp.includes(searchTerm) || machineId.includes(searchTerm)) {
+            foundCount++;
+            foundMachines.push(card);
+        }
+    });
+    
+    if (foundCount === 0) {
+        console.log(`❌ No machines found matching: "${searchTerm}"`);
+        showAlert('No machines found matching your search', 'error');
+    } else {
+        console.log(`✅ Found ${foundCount} machine(s) matching: "${searchTerm}"`);
+        showAlert(`Found ${foundCount} machine(s) - highlighting with pulse effect`, 'success');
+        
+        // Auto-expand groups and highlight found machines
+        foundMachines.forEach((card, index) => {
+            // Find the category content containing this machine
+            const categoryContent = card.closest('.category-content');
+            if (categoryContent) {
+                // Expand the category if it's collapsed
+                if (categoryContent.style.display === 'none') {
+                    categoryContent.style.display = 'block';
+                    const header = categoryContent.parentElement?.querySelector('.category-header');
+                    const icon = header?.querySelector('.collapse-icon');
+                    if (icon) {
+                        icon.style.transform = 'rotate(0deg)';
+                    }
+                }
+            }
+            
+            // Add delay for multiple machines to create wave effect
+            setTimeout(() => {
+                // Highlight the found machine with pulse effect
+                card.classList.add('highlighted');
+                
+                // Scroll to the first found machine
+                if (index === 0) {
+                    card.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
+                }
+                
+                // Remove highlight after 6 seconds
+                setTimeout(() => {
+                    card.classList.remove('highlighted');
+                }, 6000);
+            }, index * 200); // 200ms delay between each machine
+        });
     }
 }
 
@@ -834,5 +887,117 @@ async function checkSelectedStudio() {
         console.error(`❌ Error checking status:`, error);
         hideProgressModal();
         showAlert(`Error checking status: ${error.message}`, 'error');
+    }
+}
+
+// ========== AUTO-REFRESH FUNCTIONALITY ==========
+
+// Start auto-refresh
+function startAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+    
+    autoRefreshInterval = setInterval(() => {
+        if (isAutoRefreshEnabled && currentSelectedStudio) {
+            console.log('🔄 Auto-refresh triggered...');
+            refreshStatusBackground();
+        }
+    }, 15000); // 15 seconds
+    
+    console.log('✅ Auto-refresh started: 15 second intervals');
+}
+
+// Stop auto-refresh
+function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        console.log('⏸️ Auto-refresh stopped');
+    }
+}
+
+// Background refresh without blocking UI
+async function refreshStatusBackground() {
+    if (!currentSelectedStudio || !allMachinesData) {
+        return;
+    }
+    
+    try {
+        console.log('🔄 Starting background refresh...');
+        
+        // Show subtle refresh indicator (rotate refresh button icon if visible)
+        const refreshBtn = document.getElementById('refreshBtn');
+        if (refreshBtn) {
+            const icon = refreshBtn.querySelector('i');
+            if (icon) {
+                icon.style.transform = 'rotate(360deg)';
+                icon.style.transition = 'transform 1s ease';
+                setTimeout(() => {
+                    icon.style.transform = 'rotate(0deg)';
+                }, 1000);
+            }
+        }
+        
+        const machines = allMachinesData[currentSelectedStudio];
+        
+        const response = await fetch('/osmachine/batch-check-status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                machines: machines
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            console.log(`🔄 Processing ${Object.keys(data.results || {}).length} machine results...`);
+            
+            // Update all status indicators silently (no progress modal)
+            let updatedCount = 0;
+            Object.entries(data.results || {}).forEach(([ip, result]) => {
+                if (result && result.status) {
+                    updateStatusIndicatorSilent(ip, result.status);
+                    updatedCount++;
+                }
+            });
+            
+            console.log(`✅ Updated ${updatedCount} machine statuses`);
+            
+            // Update health summary
+            updateHealthSummary();
+            
+            // Show subtle notification
+            showAlert(`🔄 Status refreshed (${updatedCount} machines)`, 'info');
+        } else {
+            console.warn('Background refresh returned error:', data.message);
+        }
+    } catch (error) {
+        console.error('Background refresh error:', error);
+        // Don't show error toast for background refresh to avoid spam
+    }
+}
+
+// Update status indicator silently (without animations/sounds)
+function updateStatusIndicatorSilent(ip, status) {
+    const statusIndicator = document.getElementById(`status-${ip.replace(/\./g, '-')}`);
+    
+    if (statusIndicator) {
+        if (status === 'online') {
+            statusIndicator.className = 'machine-status-indicator online';
+            statusIndicator.innerHTML = '<i class="fas fa-check-circle"></i>';
+            machineStatusCache[ip] = 'online';
+        } else if (status === 'offline') {
+            statusIndicator.className = 'machine-status-indicator offline';
+            statusIndicator.innerHTML = '<i class="fas fa-times-circle"></i>';
+            machineStatusCache[ip] = 'offline';
+        } else {
+            statusIndicator.className = 'machine-status-indicator error';
+            statusIndicator.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+            machineStatusCache[ip] = 'error';
+        }
     }
 }

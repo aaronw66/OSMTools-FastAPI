@@ -116,20 +116,17 @@ async def batch_check_status(request: Request):
     """Check status of multiple machines concurrently with caching"""
     try:
         data = await request.json()
-        group_name = data.get('group_name')
+        machines_to_check = data.get('machines', [])
         max_concurrent = data.get('max_concurrent', 20)
         force_refresh = data.get('force_refresh', False)
         
-        machines = service.read_machines_from_lognavigator()
-        
-        if not machines or group_name not in machines:
+        if not machines_to_check:
             return JSONResponse(content={
                 "status": "error",
-                "message": f"Group '{group_name}' not found"
-            }, status_code=404)
+                "message": "No machines provided"
+            }, status_code=400)
         
-        group_machines = machines[group_name]
-        results = service.batch_check_status(group_machines, max_concurrent, use_cache=not force_refresh)
+        results = service.batch_check_status(machines_to_check, max_concurrent, use_cache=not force_refresh)
         
         # Calculate health summary
         online_count = sum(1 for r in results.values() if r['status'] == 'online')
