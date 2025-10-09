@@ -9,6 +9,8 @@ let currentLogsIP = '';
 let currentLogsID = '';
 let currentBatchGroup = '';
 let machineStatusCache = {};
+let allMachinesData = null;
+let currentSelectedStudio = '';
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
@@ -26,8 +28,8 @@ document.addEventListener('DOMContentLoaded', function() {
         logsDateInput.valueAsDate = new Date();
     }
     
-    // Update health summary from initial page load
-    updateHealthSummary();
+    // Load studio list
+    loadStudioList();
     
     const initEnd = performance.now();
     console.log(`✅ OSMachine initialization complete in ${(initEnd - initStart).toFixed(2)}ms`);
@@ -35,12 +37,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const pageLoadEnd = performance.now();
     console.log(`📊 Total page load time: ${(pageLoadEnd - pageLoadStart).toFixed(2)}ms`);
     console.groupEnd();
-    
-    // Auto-check all machines status on page load
-    console.log('🔄 Auto-checking all machines status...');
-    setTimeout(() => {
-        checkAllMachines();
-    }, 500);
 });
 
 // Search functionality
@@ -607,4 +603,164 @@ window.onclick = function(event) {
         closeLogsModal();
     }
     // Don't close progress modal on outside click
+}
+
+// Load studio/group list
+async function loadStudioList() {
+    try {
+        const response = await fetch('/osmachine/refresh-machines', {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            allMachinesData = data.machines;
+            const studioSelect = document.getElementById('studioSelect');
+            
+            // Populate dropdown with studio names
+            Object.keys(allMachinesData).forEach(studio => {
+                const option = document.createElement('option');
+                option.value = studio;
+                option.textContent = `${studio} (${allMachinesData[studio].length} machines)`;
+                studioSelect.appendChild(option);
+            });
+            
+            console.log(`✅ Loaded ${Object.keys(allMachinesData).length} studios`);
+        }
+    } catch (error) {
+        console.error('❌ Error loading studios:', error);
+        showAlert('Failed to load studio list', 'error');
+    }
+}
+
+// Handle studio selection
+function handleStudioChange() {
+    const studioSelect = document.getElementById('studioSelect');
+    const selectedStudio = studioSelect.value;
+    
+    if (!selectedStudio) {
+        // Hide machine list and controls
+        document.getElementById('machineSearchBox').style.display = 'none';
+        document.getElementById('refreshBtn').style.display = 'none';
+        document.getElementById('checkStatusBtn').style.display = 'none';
+        document.querySelector('.machines-container').innerHTML = '';
+        updateHealthSummary();
+        return;
+    }
+    
+    currentSelectedStudio = selectedStudio;
+    
+    // Show search box and controls
+    document.getElementById('machineSearchBox').style.display = 'flex';
+    document.getElementById('refreshBtn').style.display = 'inline-block';
+    document.getElementById('checkStatusBtn').style.display = 'inline-block';
+    
+    // Display machines for selected studio
+    displayStudioMachines(selectedStudio);
+}
+
+// Display machines for selected studio
+function displayStudioMachines(studio) {
+    const machines = allMachinesData[studio];
+    const container = document.querySelector('.machines-container');
+    
+    if (!machines || machines.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #8b949e; padding: 40px;">No machines found for this studio.</p>';
+        return;
+    }
+    
+    // Create single category view
+    const categoryHTML = `
+        <div class="machine-category">
+            <div class="category-header" onclick="toggleCategoryCollapse('${studio}')">
+                <div class="category-title">
+                    <i class="fas fa-server"></i>
+                    <span>${studio}</span>
+                    <span class="machine-count">${machines.length} machines</span>
+                </div>
+                <div class="category-stats">
+                    <span class="stat-badge stat-online" id="stat-online-${studio}">0 online</span>
+                    <span class="stat-badge stat-offline" id="stat-offline-${studio}">0 offline</span>
+                    <span class="stat-badge stat-error" id="stat-error-${studio}">0 error</span>
+                </div>
+                <i class="fas fa-chevron-down collapse-icon"></i>
+            </div>
+            <div class="category-content" id="category-${studio}">
+                <div class="machine-group">
+                    <div class="machines-grid">
+                        ${machines.map(machine => renderMachineCard(machine)).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = categoryHTML;
+    updateHealthSummary();
+    
+    console.log(`📋 Displayed ${machines.length} machines for ${studio}`);
+}
+
+// Check status for selected studio only
+async function checkSelectedStudio() {
+    if (!currentSelectedStudio) {
+        showAlert('Please select a studio first', 'error');
+        return;
+    }
+    
+    const machines = allMachinesData[currentSelectedStudio];
+    const ips = machines.map(m => m.ip);
+    
+    console.log(`🚀 Checking status for ${ips.length} machines in ${currentSelectedStudio}...`);
+    
+    showProgressModal(`Checking ${currentSelectedStudio}`, `Checking status for ${ips.length} machines...`);
+    
+    try {
+        const response = await fetch('/osmachine/batch-check-status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                machines: machines
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            // Update UI with results
+            Object.values(data.results).forEach(result => {
+                const ip = result.ip;
+                const statusIndicator = document.getElementById(`status-${ip.replace(/\./g, '-')}`);
+                
+                if (statusIndicator) {
+                    if (result.status === 'online') {
+                        statusIndicator.className = 'machine-status-indicator online';
+                        statusIndicator.innerHTML = '<i class="fas fa-check-circle"></i>';
+                    } else if (result.status === 'offline') {
+                        statusIndicator.className = 'machine-status-indicator offline';
+                        statusIndicator.innerHTML = '<i class="fas fa-times-circle"></i>';
+                    } else {
+                        statusIndicator.className = 'machine-status-indicator error';
+                        statusIndicator.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                    }
+                    machineStatusCache[ip] = result.status;
+                }
+            });
+            
+            updateHealthSummary();
+            hideProgressModal();
+            showAlert(`Status check complete for ${currentSelectedStudio}!`, 'success');
+        } else {
+            hideProgressModal();
+            showAlert(`Error checking status: ${data.message}`, 'error');
+        }
+        
+    } catch (error) {
+        console.error(`❌ Error checking status:`, error);
+        hideProgressModal();
+        showAlert(`Error checking status: ${error.message}`, 'error');
+    }
 }

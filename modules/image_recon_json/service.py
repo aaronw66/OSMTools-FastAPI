@@ -211,20 +211,26 @@ class ImageReconJsonService:
                     src1_suffix = "_MAIN"
                     bowl_suffix = "_POOL"
                 
+                # Build pool entry with poolType in the correct position
                 pool_entry = {
                     "channel": f"channel{channel_id}",
                     "src": f"rtmp://srs-pull.prod.sn-game.net/live/{pool_streams_chunk[0][0]}{src_suffix}",
                     "gametype": game_type,
                     "skipT": 20,
                     "sleepT": 333,
-                    "jackpotId": "0",
-                    "gamelist": []
+                    "jackpotId": "0"
                 }
                 
-                # Only add poolType for BZZF machines
+                # Only add poolType for BZZF machines (before gamelist)
+                logger.info(f"🔍 Checking machine_type: '{machine_type}' == 'BZZF'? {machine_type == 'BZZF'}")
                 if machine_type == "BZZF":
                     pool_entry["poolType"] = pool_type
                     logger.info(f"✅ Added poolType={pool_type} to pool entry for BZZF")
+                else:
+                    logger.info(f"⏭️ Skipping poolType for machine_type: {machine_type}")
+                
+                # Add gamelist last
+                pool_entry["gamelist"] = []
                 
                 for stream in pool_streams_chunk:
                     stream_id = stream[0]

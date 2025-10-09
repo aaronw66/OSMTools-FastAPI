@@ -30,6 +30,36 @@ body {
     max-width: 500px;
 }
 
+.studio-select {
+    width: 100%;
+    padding: 12px 12px 12px 40px;
+    background: #1c2128;
+    border: 2px solid #30363d;
+    border-radius: 8px;
+    color: #c9d1d9;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.studio-select:hover {
+    border-color: #2196F3;
+    background: #21262d;
+}
+
+.studio-select:focus {
+    outline: none;
+    border-color: #2196F3;
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.studio-select option {
+    background: #1c2128;
+    color: #c9d1d9;
+    padding: 10px;
+}
+
 .search-icon-left {
     position: absolute;
     left: 15px;

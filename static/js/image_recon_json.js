@@ -191,7 +191,7 @@ function displayGeneratedJson(jsonContent) {
         // Add copy button
         jsonOutput.innerHTML = `
             <button class="json-copy-btn" onclick="copyJsonToClipboard()">📋 Copy</button>
-            ${formattedJson}
+            <pre style="margin: 0; padding: 0;">${formattedJson}</pre>
         `;
         
         jsonOutputCard.style.display = 'block';
