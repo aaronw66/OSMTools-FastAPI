@@ -549,6 +549,36 @@ class OSMachineService:
     def refresh_machines(self) -> Dict:
         """Refresh machine list by removing cache and re-reading XML - returns machines organized by studio"""
         try:
+            # Check if we're in local development mode (no XML file)
+            xml_paths = [
+                '/opt/compose-conf/lognavigator/lognavigator.xml',
+                '/opt/lognavigator/lognavigator.xml',
+                'lognavigator.xml'
+            ]
+            
+            xml_exists = any(os.path.exists(path) for path in xml_paths)
+            
+            if not xml_exists:
+                self.logger.warning("⚠️ XML file not found - using mock data for local development")
+                # Return mock data for local testing
+                mock_machines = {
+                    "OSM_CP": [
+                        {"ip": "10.144.24.21", "config_id": "OSM077", "display_group": "OSM_CP"},
+                        {"ip": "10.144.24.22", "config_id": "OSM078", "display_group": "OSM_CP"},
+                        {"ip": "10.144.24.23", "config_id": "OSM079", "display_group": "OSM_CP"},
+                    ],
+                    "OSM_MY": [
+                        {"ip": "192.168.1.10", "config_id": "OSM001", "display_group": "OSM_MY"},
+                        {"ip": "192.168.1.11", "config_id": "OSM002", "display_group": "OSM_MY"},
+                    ]
+                }
+                return {
+                    "status": "success",
+                    "message": "Using mock data for local development",
+                    "machines": mock_machines
+                }
+            
+            # Production mode - read from XML
             if os.path.exists(LOCAL_CACHE_FILE):
                 try:
                     os.remove(LOCAL_CACHE_FILE)
