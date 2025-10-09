@@ -660,6 +660,33 @@ function handleStudioChange() {
     displayStudioMachines(selectedStudio);
 }
 
+// Render a single machine card
+function renderMachineCard(machine) {
+    const ipId = machine.ip.replace(/\./g, '-');
+    return `
+        <div class="machine-card" data-ip="${machine.ip}" data-group="${machine.display_group || ''}" data-config-id="${machine.config_id}">
+            <div class="machine-status-indicator" id="status-${ipId}">
+                <i class="fas fa-circle"></i>
+            </div>
+            <div class="machine-info">
+                <div class="machine-ip">${machine.ip}</div>
+                <div class="machine-id">${machine.config_id}</div>
+            </div>
+            <div class="machine-actions">
+                <button class="btn-machine-action btn-check" onclick="checkMachineStatus('${machine.ip}')" title="Check Status">
+                    <i class="fas fa-heartbeat"></i>
+                </button>
+                <button class="btn-machine-action btn-restart" onclick="showRestartModal('${machine.ip}', '${machine.config_id}')" title="Restart Machine">
+                    <i class="fas fa-redo"></i>
+                </button>
+                <button class="btn-machine-action btn-logs" onclick="showLogsModal('${machine.ip}', '${machine.config_id}')" title="View Logs">
+                    <i class="fas fa-file-alt"></i>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
 // Display machines for selected studio
 function displayStudioMachines(studio) {
     const machines = allMachinesData[studio];
