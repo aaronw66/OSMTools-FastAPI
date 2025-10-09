@@ -269,6 +269,10 @@ body {
 
 .category-content {
     transition: all 0.3s ease;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    padding: 20px;
 }
 
 .category-content.collapsed {
@@ -377,10 +381,14 @@ body {
     background: linear-gradient(135deg, rgba(30, 30, 46, 0.9), rgba(40, 40, 60, 0.9));
     border: 2px solid rgba(102, 126, 234, 0.2);
     border-radius: 10px;
-    padding: 15px;
+    padding: 12px;
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 140px;
 }
 
 .machine-card::before {
@@ -424,9 +432,9 @@ body {
 
 .machine-status-indicator {
     position: absolute;
-    top: 10px;
-    right: 10px;
-    font-size: 12px;
+    top: 8px;
+    right: 8px;
+    font-size: 10px;
 }
 
 .machine-status-indicator.unknown {
@@ -468,33 +476,40 @@ body {
 }
 
 .machine-info {
-    margin-bottom: 15px;
-    padding-top: 5px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
 }
 
 .machine-ip {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     color: #2196F3;
-    margin-bottom: 5px;
+    word-break: break-all;
 }
 
 .machine-id {
-    font-size: 12px;
+    font-size: 11px;
     color: rgba(255, 255, 255, 0.6);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .machine-actions {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     justify-content: space-between;
 }
 
 .btn-machine-action {
     flex: 1;
-    padding: 8px;
+    padding: 6px;
     border: none;
     border-radius: 6px;
+    font-size: 12px;
     color: white;
     cursor: pointer;
     transition: all 0.2s ease;
