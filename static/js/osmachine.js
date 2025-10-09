@@ -610,15 +610,28 @@ window.onclick = function(event) {
 // Load studio/group list
 async function loadStudioList() {
     try {
+        console.log('📡 Fetching studio list from /osmachine/refresh-machines...');
         const response = await fetch('/osmachine/refresh-machines', {
             method: 'POST'
         });
         
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const data = await response.json();
+        console.log('📦 Received data:', data);
         
         if (data.status === 'success') {
             allMachinesData = data.machines;
+            console.log('📊 Machine data loaded:', Object.keys(allMachinesData).length, 'studios');
+            
             const studioSelect = document.getElementById('studioSelect');
+            
+            // Clear existing options except the first one
+            while (studioSelect.options.length > 1) {
+                studioSelect.remove(1);
+            }
             
             // Populate dropdown with studio names
             Object.keys(allMachinesData).forEach(studio => {
@@ -626,13 +639,17 @@ async function loadStudioList() {
                 option.value = studio;
                 option.textContent = `${studio} (${allMachinesData[studio].length} machines)`;
                 studioSelect.appendChild(option);
+                console.log(`✅ Added studio: ${studio} with ${allMachinesData[studio].length} machines`);
             });
             
-            console.log(`✅ Loaded ${Object.keys(allMachinesData).length} studios`);
+            console.log(`✅ Loaded ${Object.keys(allMachinesData).length} studios total`);
+        } else {
+            console.error('❌ Server returned error:', data.message);
+            showAlert(`Failed to load studios: ${data.message}`, 'error');
         }
     } catch (error) {
         console.error('❌ Error loading studios:', error);
-        showAlert('Failed to load studio list', 'error');
+        showAlert(`Failed to load studio list: ${error.message}`, 'error');
     }
 }
 
