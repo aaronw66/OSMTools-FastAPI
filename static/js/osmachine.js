@@ -73,6 +73,23 @@ function toggleCategory(categoryId) {
     }
 }
 
+// Toggle category collapse for studio view
+function toggleCategoryCollapse(studioId) {
+    const content = document.getElementById(`category-${studioId}`);
+    const header = content?.parentElement?.querySelector('.category-header');
+    const icon = header?.querySelector('.collapse-icon');
+    
+    if (content) {
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            if (icon) icon.style.transform = 'rotate(0deg)';
+        } else {
+            content.style.display = 'none';
+            if (icon) icon.style.transform = 'rotate(-90deg)';
+        }
+    }
+}
+
 // Toggle group collapse
 function toggleGroup(groupName) {
     const grid = document.getElementById(`grid-${groupName}`);
@@ -640,9 +657,7 @@ function handleStudioChange() {
     const selectedStudio = studioSelect.value;
     
     if (!selectedStudio) {
-        // Hide machine list and controls
-        document.getElementById('machineSearchBox').style.display = 'none';
-        document.getElementById('refreshBtn').style.display = 'none';
+        // Clear machine list
         document.getElementById('checkStatusBtn').style.display = 'none';
         document.querySelector('.machines-container').innerHTML = '';
         updateHealthSummary();
@@ -651,13 +666,43 @@ function handleStudioChange() {
     
     currentSelectedStudio = selectedStudio;
     
-    // Show search box and controls
-    document.getElementById('machineSearchBox').style.display = 'flex';
-    document.getElementById('refreshBtn').style.display = 'inline-block';
+    // Show check status button
     document.getElementById('checkStatusBtn').style.display = 'inline-block';
     
     // Display machines for selected studio
     displayStudioMachines(selectedStudio);
+    
+    console.log(`📍 Studio selected: ${selectedStudio}`);
+}
+
+// Global search across all studios to find machine location
+function handleGlobalSearch() {
+    const searchTerm = document.getElementById('globalSearchBox').value.trim();
+    
+    if (!searchTerm || !allMachinesData) {
+        return;
+    }
+    
+    console.log(`🔍 Global search for: "${searchTerm}"`);
+    
+    // Search across all studios
+    let found = false;
+    for (const [studioName, machines] of Object.entries(allMachinesData)) {
+        for (const machine of machines) {
+            if (machine.ip.includes(searchTerm) || machine.config_id.toLowerCase().includes(searchTerm.toLowerCase())) {
+                console.log(`✅ Found machine ${machine.ip} (${machine.config_id}) in studio: ${studioName}`);
+                showAlert(`Machine ${machine.ip} (${machine.config_id}) is in studio: ${studioName}`, 'success');
+                found = true;
+                break;
+            }
+        }
+        if (found) break;
+    }
+    
+    if (!found) {
+        console.log(`❌ Machine not found: "${searchTerm}"`);
+        showAlert(`Machine "${searchTerm}" not found in any studio`, 'error');
+    }
 }
 
 // Render a single machine card

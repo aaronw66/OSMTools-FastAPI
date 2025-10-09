@@ -7,32 +7,38 @@ body {
 }
 
 /* Search and Controls Bar */
-.search-controls-bar {
+.top-bar {
     position: fixed;
     top: 60px;
     left: 0;
     right: 0;
     background: rgba(15, 15, 30, 0.95);
     backdrop-filter: blur(10px);
-    padding: 15px 20px;
+    padding: 15px 30px;
     border-bottom: 1px solid rgba(102, 126, 234, 0.2);
     z-index: 999;
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 280px 1fr 280px;
     align-items: center;
     gap: 20px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-.search-box-wrapper {
+.studio-selector-wrapper {
     position: relative;
-    flex: 1;
-    max-width: 500px;
+    width: 280px;
+}
+
+.global-search-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    justify-self: center;
 }
 
 .studio-select {
     width: 100%;
-    padding: 12px 12px 12px 40px;
+    padding: 10px 12px 10px 40px;
     background: #1c2128;
     border: 2px solid #30363d;
     border-radius: 8px;
@@ -70,31 +76,31 @@ body {
     pointer-events: none;
 }
 
-#searchBox {
+#searchBox, #globalSearchBox {
     width: 100%;
-    padding: 12px 15px 12px 45px;
+    padding: 10px 15px 10px 40px;
     font-size: 14px;
-    border: 2px solid rgba(102, 126, 234, 0.3);
-    border-radius: 25px;
-    background: rgba(255, 255, 255, 0.05);
-    color: white;
+    border: 2px solid #30363d;
+    border-radius: 8px;
+    background: #1c2128;
+    color: #c9d1d9;
     outline: none;
     transition: all 0.3s ease;
 }
 
-#searchBox::placeholder {
-    color: rgba(255, 255, 255, 0.5);
+#searchBox::placeholder, #globalSearchBox::placeholder {
+    color: #8b949e;
 }
 
-#searchBox:focus {
-    border-color: rgba(102, 126, 234, 0.6);
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
-    background: rgba(255, 255, 255, 0.08);
+#searchBox:focus, #globalSearchBox:focus {
+    border-color: #2196F3;
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
 }
 
 .control-buttons {
     display: flex;
     gap: 10px;
+    justify-content: flex-end;
 }
 
 .btn-control {
@@ -784,12 +790,14 @@ body {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    .search-controls-bar {
+    .top-bar {
         flex-direction: column;
         gap: 10px;
     }
     
-    .search-box-wrapper {
+    .studio-selector-wrapper,
+    .global-search-wrapper {
+        width: 100%;
         max-width: 100%;
     }
     

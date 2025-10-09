@@ -547,7 +547,7 @@ class OSMachineService:
             }
     
     def refresh_machines(self) -> Dict:
-        """Refresh machine list by removing cache and re-reading XML"""
+        """Refresh machine list by removing cache and re-reading XML - returns machines organized by studio"""
         try:
             if os.path.exists(LOCAL_CACHE_FILE):
                 try:
@@ -557,21 +557,30 @@ class OSMachineService:
                     self.logger.warning(f"⚠️ Failed to remove cache: {str(e)}")
             
             self.logger.info("🔄 Forcing remote fetch of lognavigator.xml")
-            machines = self.read_machines_from_lognavigator(force_remote=True)
+            machines_by_group = self.read_machines_from_lognavigator(force_remote=True)
             
-            if not machines:
+            if not machines_by_group:
                 return {
                     "status": "error",
                     "message": "No machines found in allowed groups from lognavigator.xml"
                 }
             
-            total_machines = sum(len(machines[group]) for group in machines)
-            self.logger.info(f"🔄 Machine list refreshed: {total_machines} machines from {len(machines)} allowed groups found")
+            # Organize by studio instead of by group
+            # For now, all groups belong to "OSM Production" studio
+            machines_by_studio = {}
+            for group_name, machine_list in machines_by_group.items():
+                # Use the group name as the studio name for simplicity
+                if group_name not in machines_by_studio:
+                    machines_by_studio[group_name] = []
+                machines_by_studio[group_name].extend(machine_list)
+            
+            total_machines = sum(len(machines_by_studio[studio]) for studio in machines_by_studio)
+            self.logger.info(f"🔄 Machine list refreshed: {total_machines} machines from {len(machines_by_studio)} studios found")
             
             return {
                 "status": "success",
-                "message": f"Machine list refreshed successfully. Found {total_machines} machines from {len(machines)} allowed groups.",
-                "machines": machines
+                "message": f"Machine list refreshed successfully. Found {total_machines} machines from {len(machines_by_studio)} studios.",
+                "machines": machines_by_studio
             }
             
         except Exception as e:

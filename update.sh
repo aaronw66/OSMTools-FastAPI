@@ -2,6 +2,7 @@
 
 # 项目目录
 PROJECT_DIR="/opt/compose-conf/tools"
+CONTAINER_NAME="tools-osmtools-1"  # 根据 docker-compose ps 输出确认
 
 cd "$PROJECT_DIR" || { echo "Directory $PROJECT_DIR not found"; exit 1; }
 
@@ -15,8 +16,6 @@ git fetch origin
 git reset --hard origin/main
 
 # 保留 type/ 和 logs/ 目录中的文件，不删除
-# 所以不再使用 git clean -fd
-# 可以清理其他未跟踪临时文件，如果需要的话，用 -e 排除 type/ logs/
 echo "Cleaning other untracked files except type/ and logs/..."
 git clean -fd -e type -e logs
 
@@ -28,4 +27,13 @@ docker-compose -f docker-compose.yml up -d --build
 echo "Current container status:"
 docker-compose -f docker-compose.yml ps
 
-echo "✅ Update complete!"
+# 监控容器日志，直到出现 Application startup complete
+echo "Waiting for service to fully start..."
+docker logs -f "$CONTAINER_NAME" | while read -r line; do
+    echo "$line"
+    if echo "$line" | grep -q "INFO:     Application startup complete."; then
+        echo "✅ Service startup complete, update finished!"
+        pkill -P $$ docker   # 停止 docker logs 进程
+        break
+    fi
+done
