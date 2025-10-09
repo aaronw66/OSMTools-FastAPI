@@ -920,11 +920,18 @@ function stopAutoRefresh() {
 // Background refresh without blocking UI
 async function refreshStatusBackground() {
     if (!currentSelectedStudio || !allMachinesData) {
+        console.log('⏸️ Skipping background refresh: no studio selected or no data loaded');
+        return;
+    }
+    
+    const machines = allMachinesData[currentSelectedStudio];
+    if (!machines || machines.length === 0) {
+        console.log('⏸️ Skipping background refresh: no machines for selected studio');
         return;
     }
     
     try {
-        console.log('🔄 Starting background refresh...');
+        console.log(`🔄 Starting background refresh for ${machines.length} machines...`);
         
         // Show subtle refresh indicator (rotate refresh button icon if visible)
         const refreshBtn = document.getElementById('refreshBtn');
@@ -938,8 +945,6 @@ async function refreshStatusBackground() {
                 }, 1000);
             }
         }
-        
-        const machines = allMachinesData[currentSelectedStudio];
         
         const response = await fetch('/osmachine/batch-check-status', {
             method: 'POST',
