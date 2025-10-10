@@ -983,18 +983,22 @@ async function searchMachineInServers() {
                     const jsonData = JSON.parse(response.content);
                     
                     // Search through all machines in this server
-                    if (jsonData.pool && jsonData.pool.gamelist) {
-                        for (const pool of jsonData.pool.gamelist) {
+                    if (jsonData.pool && Array.isArray(jsonData.pool)) {
+                        for (const pool of jsonData.pool) {
                             if (pool.gamelist && Array.isArray(pool.gamelist)) {
                                 for (const machine of pool.gamelist) {
                                     const machineId = machine.id || '';
-                                    // Check if machine ID contains the search term (case-insensitive, partial match)
+                                    const sId = machine.sId || '';
+                                    // Check if machine ID or sId contains the search term (case-insensitive, partial match)
                                     if (machineId.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                        machineId.includes(searchTerm)) {
+                                        machineId.includes(searchTerm) ||
+                                        sId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                        sId.includes(searchTerm)) {
                                         foundMachines.push({
                                             id: machineId,
-                                            pool: pool.channel,
-                                            gametype: pool.gametype
+                                            sId: sId,
+                                            pool: pool.channel || pool.id || 'N/A',
+                                            gametype: pool.gametype || pool.type || 'N/A'
                                         });
                                     }
                                 }
