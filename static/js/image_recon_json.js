@@ -932,6 +932,13 @@ async function saveJsonToServer() {
                 const machineCount = countMachines(currentJsonData);
                 statusDiv.innerHTML = `<p style="color: #3fb950;">✅ Successfully saved ${machineCount} machines to ${serverIp}</p>`;
                 CommonUtils.showAlert('JSON saved successfully!', 'success');
+                
+                // Ask user if they want to restart the service
+                const restartConfirm = confirm(`✅ JSON saved successfully!\n\n🔄 Do you want to restart the OSM service on ${serverIp} now?\n\nThis will apply the new configuration.`);
+                
+                if (restartConfirm) {
+                    await restartServiceAfterSave(serverIp);
+                }
             } else {
                 throw new Error(result.message || 'Failed to save');
             }
@@ -942,6 +949,36 @@ async function saveJsonToServer() {
         console.error('Failed to save JSON:', error);
         statusDiv.innerHTML = `<p style="color: #ff7b72;">❌ Error: ${error.message}</p>`;
         CommonUtils.showAlert(`Failed to save: ${error.message}`, 'error');
+    }
+}
+
+async function restartServiceAfterSave(serverIp) {
+    const statusDiv = document.getElementById('editJsonStatus');
+    
+    console.log(`🔄 Restarting OSM service on ${serverIp}...`);
+    statusDiv.innerHTML = '<p style="color: #f0883e;">🔄 Restarting OSM service...</p>';
+    
+    try {
+        const response = await CommonUtils.apiRequest('/image-recon-service/restart-service', {
+            method: 'POST',
+            body: JSON.stringify({
+                server_ip: serverIp,
+                service_name: 'osm',
+                initiated_by: 'Edit JSON Modal'
+            })
+        });
+        
+        if (response.status === 'success') {
+            console.log(`✅ Service restart successful on ${serverIp}`);
+            statusDiv.innerHTML = `<p style="color: #3fb950;">✅ Service restarted successfully on ${serverIp}!</p>`;
+            CommonUtils.showAlert('Service restarted successfully!', 'success');
+        } else {
+            throw new Error(response.message || 'Failed to restart service');
+        }
+    } catch (error) {
+        console.error(`❌ Service restart failed on ${serverIp}:`, error);
+        statusDiv.innerHTML = `<p style="color: #ff7b72;">❌ Service restart failed: ${error.message}</p>`;
+        CommonUtils.showAlert(`Service restart failed: ${error.message}`, 'error');
     }
 }
 

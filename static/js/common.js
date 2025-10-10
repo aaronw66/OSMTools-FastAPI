@@ -1,14 +1,104 @@
 // Common JavaScript functions for all pages
 
-// Show console tip on first load
+// Show console tip on every page load (more prominent)
 if (!sessionStorage.getItem('consoleHintShown')) {
-    console.log('%c💡 Console Tip', 'color: #4a9eff; font-size: 14px; font-weight: bold;');
-    console.log('%cTo keep logs visible when switching pages:', 'color: #8b949e; font-size: 12px;');
-    console.log('%c1. Open Console Settings (⚙️)', 'color: #8b949e; font-size: 12px;');
-    console.log('%c2. Check "Preserve log"', 'color: #8b949e; font-size: 12px;');
-    console.log('%c3. Logs will persist across page navigation!', 'color: #7ee787; font-size: 12px;');
+    console.log('\n');
+    console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #2196F3;');
+    console.log('%c💡 IMPORTANT: Enable "Preserve log" to keep console logs!', 'background: linear-gradient(90deg, #2196F3, #1565C0); color: #fff; font-size: 14px; font-weight: bold; padding: 8px 12px; border-radius: 4px;');
+    console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #2196F3;');
+    console.log('%c📌 Your logs are cleared when switching pages!', 'color: #ff7b72; font-size: 13px; font-weight: bold;');
+    console.log('%cTo keep logs when navigating between CCTV, Image Recon, OSMachine, etc:', 'color: #8b949e; font-size: 12px;');
+    console.log('%c  1️⃣  Right-click in console → Select "Console settings" (⚙️ gear icon)', 'color: #58a6ff; font-size: 12px;');
+    console.log('%c  2️⃣  Check ☑️ "Preserve log"', 'color: #58a6ff; font-size: 12px;');
+    console.log('%c  3️⃣  Your logs will now persist across all page navigation! ✨', 'color: #7ee787; font-size: 12px; font-weight: bold;');
+    console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #2196F3;');
+    console.log('\n');
     sessionStorage.setItem('consoleHintShown', 'true');
 }
+
+// Show a dismissible banner on the page for first-time users
+if (!localStorage.getItem('preserveLogBannerDismissed')) {
+    document.addEventListener('DOMContentLoaded', function() {
+        const banner = document.createElement('div');
+        banner.id = 'preserveLogBanner';
+        banner.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            max-width: 400px;
+            background: linear-gradient(135deg, #2196F3 0%, #1565C0 100%);
+            color: #fff;
+            padding: 16px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+            z-index: 9999;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            animation: slideInRight 0.3s ease-out;
+        `;
+        
+        banner.innerHTML = `
+            <div style="display: flex; align-items: start; gap: 12px;">
+                <div style="font-size: 24px; flex-shrink: 0;">💡</div>
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; font-size: 14px; margin-bottom: 6px;">Console logs clearing between pages?</div>
+                    <div style="font-size: 12px; opacity: 0.95; line-height: 1.5;">
+                        Enable <strong>Preserve log</strong> in Console Settings (⚙️) to keep your logs when switching between tools!
+                    </div>
+                </div>
+                <button onclick="dismissPreserveLogBanner()" style="
+                    background: rgba(255, 255, 255, 0.2);
+                    border: none;
+                    color: #fff;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 16px;
+                    line-height: 1;
+                    flex-shrink: 0;
+                    transition: background 0.2s;
+                " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">×</button>
+            </div>
+        `;
+        
+        document.body.appendChild(banner);
+        
+        // Add animation keyframes
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideInRight {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Auto-dismiss after 15 seconds
+        setTimeout(() => {
+            if (document.getElementById('preserveLogBanner')) {
+                dismissPreserveLogBanner();
+            }
+        }, 15000);
+    });
+}
+
+function dismissPreserveLogBanner() {
+    const banner = document.getElementById('preserveLogBanner');
+    if (banner) {
+        banner.style.animation = 'slideInRight 0.3s ease-out reverse';
+        setTimeout(() => banner.remove(), 300);
+        localStorage.setItem('preserveLogBannerDismissed', 'true');
+    }
+}
+
+// Make it globally accessible
+window.dismissPreserveLogBanner = dismissPreserveLogBanner;
 
 // Utility Functions
 function showAlert(message, type = 'info') {

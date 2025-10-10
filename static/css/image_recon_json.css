@@ -439,6 +439,37 @@
     box-shadow: 0 0 0 3px rgba(139, 148, 158, 0.1);
 }
 
+/* Server List Item Styles */
+.server-list-item {
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    border: 1px solid #21262d;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: transparent;
+}
+
+.server-list-item:hover {
+    background: #21262d;
+    border-color: #8b949e;
+    transform: translateX(2px);
+}
+
+.server-list-item[style*="background: rgb(22, 27, 34)"],
+.server-list-item[style*="background: #161b22"] {
+    background: linear-gradient(135deg, #2196F3 0%, #1565C0 100%) !important;
+    border-color: #2196F3 !important;
+    box-shadow: 0 0 10px rgba(33, 150, 243, 0.3);
+    transform: translateX(4px);
+}
+
+.server-list-item[style*="background: rgb(22, 27, 34)"] *,
+.server-list-item[style*="background: #161b22"] * {
+    color: #fff !important;
+    font-weight: 600;
+}
+
 #editJsonStatus {
     margin-top: 10px;
     padding: 10px;
