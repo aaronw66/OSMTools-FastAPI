@@ -44,9 +44,14 @@ IP,Room,User,UserSig<br>
                 <!-- Firmware Version -->
                 <div class="form-group">
                     <label class="form-label">Firmware Version <span class="required">*</span></label>
-                    <select id="firmwareVersion" class="form-select">
-                        <option value="">Select firmware version...</option>
-                    </select>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="firmwareVersion" class="form-select" style="flex: 1;">
+                            <option value="">Select firmware version...</option>
+                        </select>
+                        <button class="btn-refresh-firmware" onclick="refreshFirmwareVersions()" title="Refresh firmware list">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
                     <div class="form-help">Select the firmware version to install on the devices.</div>
                 </div>
 
@@ -186,8 +191,8 @@ IP,Room,User,UserSig<br>
         </div>
     </div>
 
-    <link rel="stylesheet" href="/static/css/cctv_tools.css?v=20251008e">
+    <link rel="stylesheet" href="/static/css/cctv_tools.css?v=20251010b">
     <script src="/static/js/common.js?v=20251010a"></script>
-    <script src="/static/js/cctv_tools.js?v=20251008e"></script>
+    <script src="/static/js/cctv_tools.js?v=20251010b"></script>
 </body>
 </html>

@@ -122,6 +122,7 @@ async function loadFirmwareVersions() {
         const data = await response.json();
         
         const select = document.getElementById('firmwareVersion');
+        const currentValue = select.value; // Remember current selection
         select.innerHTML = '<option value="">Select firmware version...</option>';
         
         if (data.status === 'success' && data.versions) {
@@ -132,6 +133,10 @@ async function loadFirmwareVersions() {
                 option.textContent = version.name;
                 select.appendChild(option);
             });
+            // Restore previous selection if it still exists
+            if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
+                select.value = currentValue;
+            }
         } else {
             // Add some default versions for development
             const defaultVersions = [
@@ -150,6 +155,27 @@ async function loadFirmwareVersions() {
     } catch (error) {
         console.error('Error loading firmware versions:', error);
         showAlert('Failed to load firmware versions', 'error');
+    }
+}
+
+async function refreshFirmwareVersions() {
+    console.log('🔄 Refreshing firmware versions...');
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    
+    // Show loading state
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+    
+    try {
+        await loadFirmwareVersions();
+        showAlert('Firmware list refreshed!', 'success');
+    } catch (error) {
+        showAlert('Failed to refresh firmware list', 'error');
+    } finally {
+        // Restore button
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
     }
 }
 

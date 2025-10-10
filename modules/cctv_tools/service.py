@@ -17,6 +17,9 @@ try:
     REQUESTS_AVAILABLE = True
 except ImportError:
     REQUESTS_AVAILABLE = False
+    # Create a dummy AuthBase if requests is not available
+    class AuthBase:
+        pass
 
 from config import settings
 

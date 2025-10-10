@@ -916,6 +916,42 @@ body {
     align-items: center;
 }
 
+/* Refresh Firmware Button */
+.btn-refresh-firmware {
+    background: linear-gradient(135deg, #2196F3 0%, #1565C0 100%);
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.btn-refresh-firmware:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+}
+
+.btn-refresh-firmware:active {
+    transform: translateY(0);
+}
+
+.btn-refresh-firmware:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-refresh-firmware i {
+    font-size: 12px;
+}
+
 .btn-configure, .btn-reboot, .btn-update-firmware {
     padding: 4px 10px;
     font-size: 12px;
