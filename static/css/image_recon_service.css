@@ -4,6 +4,8 @@
 body {
     overflow: hidden !important;
     height: 100vh;
+    position: fixed;
+    width: 100%;
 }
 
 /* Search Container - Fixed at top */

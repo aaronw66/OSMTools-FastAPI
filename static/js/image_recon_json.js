@@ -643,11 +643,13 @@ function renderMachineList() {
     let html = '<table style="width: 100%; border-collapse: collapse;">';
     html += '<thead style="position: sticky; top: 0; background: #161b22; z-index: 10;">';
     html += '<tr style="border-bottom: 2px solid #3a3f52;">';
+    html += '<th style="padding: 12px; text-align: center; color: #58a6ff; font-weight: 600; width: 50px;">';
+    html += '<input type="checkbox" id="selectAllMachines" onchange="toggleSelectAll(this)" style="width: 18px; height: 18px; cursor: pointer;">';
+    html += '</th>';
     html += '<th style="padding: 12px; text-align: left; color: #58a6ff; font-weight: 600;">Machine ID</th>';
     html += '<th style="padding: 12px; text-align: left; color: #58a6ff; font-weight: 600;">Pool ID</th>';
     html += '<th style="padding: 12px; text-align: left; color: #58a6ff; font-weight: 600;">Type</th>';
     html += '<th style="padding: 12px; text-align: left; color: #58a6ff; font-weight: 600;">Stream ID</th>';
-    html += '<th style="padding: 12px; text-align: center; color: #58a6ff; font-weight: 600; width: 100px;">Action</th>';
     html += '</tr>';
     html += '</thead>';
     html += '<tbody>';
@@ -655,16 +657,15 @@ function renderMachineList() {
     currentJsonData.pool.forEach((pool, poolIndex) => {
         if (pool.gamelist && pool.gamelist.length > 0) {
             pool.gamelist.forEach((machine, machineIndex) => {
-                html += '<tr style="border-bottom: 1px solid #21262d;" onmouseover="this.style.background=\'#21262d\'" onmouseout="this.style.background=\'transparent\'">';
+                const rowId = `machine-${poolIndex}-${machineIndex}`;
+                html += `<tr id="${rowId}" style="border-bottom: 1px solid #21262d;" onmouseover="this.style.background='#21262d'" onmouseout="if(!this.querySelector('input[type=checkbox]').checked) this.style.background='transparent'">`;
+                html += `<td style="padding: 12px; text-align: center;">`;
+                html += `<input type="checkbox" class="machine-checkbox" data-pool="${poolIndex}" data-machine="${machineIndex}" onchange="updateDeleteButtonState()" style="width: 18px; height: 18px; cursor: pointer;">`;
+                html += `</td>`;
                 html += `<td style="padding: 12px; color: #c9d1d9; font-family: monospace; font-size: 13px;">${machine.id || 'N/A'}</td>`;
                 html += `<td style="padding: 12px; color: #8b949e;">${pool.id || 'N/A'}</td>`;
                 html += `<td style="padding: 12px; color: #8b949e;">${pool.type || 'N/A'}</td>`;
                 html += `<td style="padding: 12px; color: #8b949e; font-family: monospace; font-size: 12px;">${machine.sId || 'N/A'}</td>`;
-                html += `<td style="padding: 12px; text-align: center;">`;
-                html += `<button onclick="deleteMachine(${poolIndex}, ${machineIndex})" class="btn-delete-machine" style="background: linear-gradient(135deg, #da3633 0%, #b02a28 100%); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(218, 54, 51, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">`;
-                html += `<i class="fas fa-trash"></i> Delete`;
-                html += `</button>`;
-                html += `</td>`;
                 html += '</tr>';
             });
         }
@@ -674,20 +675,143 @@ function renderMachineList() {
     html += '</table>';
     
     container.innerHTML = html;
+    updateDeleteButtonState();
 }
 
-function deleteMachine(poolIndex, machineIndex) {
-    if (!confirm('Are you sure you want to delete this machine?')) {
+function toggleSelectAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.machine-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+        // Highlight selected rows
+        const row = cb.closest('tr');
+        if (cb.checked) {
+            row.style.background = '#da363320';
+        } else {
+            row.style.background = 'transparent';
+        }
+    });
+    updateDeleteButtonState();
+}
+
+function updateDeleteButtonState() {
+    const checkboxes = document.querySelectorAll('.machine-checkbox:checked');
+    const deleteBtn = document.getElementById('batchDeleteBtn');
+    const selectAllCheckbox = document.getElementById('selectAllMachines');
+    
+    if (deleteBtn) {
+        if (checkboxes.length > 0) {
+            deleteBtn.disabled = false;
+            deleteBtn.style.opacity = '1';
+            deleteBtn.style.cursor = 'pointer';
+            deleteBtn.innerHTML = `<i class="fas fa-trash-alt"></i> Delete Selected (${checkboxes.length})`;
+        } else {
+            deleteBtn.disabled = true;
+            deleteBtn.style.opacity = '0.5';
+            deleteBtn.style.cursor = 'not-allowed';
+            deleteBtn.innerHTML = `<i class="fas fa-trash-alt"></i> Delete Selected`;
+        }
+    }
+    
+    // Update "select all" checkbox state
+    if (selectAllCheckbox) {
+        const totalCheckboxes = document.querySelectorAll('.machine-checkbox').length;
+        selectAllCheckbox.checked = checkboxes.length === totalCheckboxes && totalCheckboxes > 0;
+    }
+    
+    // Highlight checked rows
+    document.querySelectorAll('.machine-checkbox').forEach(cb => {
+        const row = cb.closest('tr');
+        if (cb.checked) {
+            row.style.background = '#da363320';
+        } else {
+            row.style.background = 'transparent';
+        }
+    });
+}
+
+function batchDeleteMachines() {
+    const checkboxes = document.querySelectorAll('.machine-checkbox:checked');
+    
+    if (checkboxes.length === 0) {
+        CommonUtils.showAlert('No machines selected', 'error');
         return;
     }
     
-    // Remove the machine from the data
-    currentJsonData.pool[poolIndex].gamelist.splice(machineIndex, 1);
-    
-    // If pool is now empty, remove the pool
-    if (currentJsonData.pool[poolIndex].gamelist.length === 0) {
-        currentJsonData.pool.splice(poolIndex, 1);
+    if (!confirm(`Are you sure you want to delete ${checkboxes.length} machine(s)?`)) {
+        return;
     }
+    
+    console.log(`🗑️ Batch deleting ${checkboxes.length} machines...`);
+    
+    // Collect all machines to delete (pool index, machine index)
+    const toDelete = [];
+    checkboxes.forEach(cb => {
+        toDelete.push({
+            poolIndex: parseInt(cb.dataset.pool),
+            machineIndex: parseInt(cb.dataset.machine)
+        });
+    });
+    
+    // Sort by pool index (descending) and machine index (descending) to avoid index shifting
+    toDelete.sort((a, b) => {
+        if (b.poolIndex !== a.poolIndex) return b.poolIndex - a.poolIndex;
+        return b.machineIndex - a.machineIndex;
+    });
+    
+    // Track pools that need updating
+    const poolsToCheck = new Set();
+    
+    // Delete each machine
+    toDelete.forEach(({poolIndex, machineIndex}) => {
+        const pool = currentJsonData.pool[poolIndex];
+        if (!pool || !pool.gamelist || !pool.gamelist[machineIndex]) return;
+        
+        const deletedMachine = pool.gamelist[machineIndex];
+        const deletedSId = deletedMachine.sId;
+        
+        console.log(`  🗑️ Deleting: ${deletedMachine.id} (sId: ${deletedSId})`);
+        
+        // Remove the machine
+        pool.gamelist.splice(machineIndex, 1);
+        
+        // Mark this pool for checking
+        poolsToCheck.add(poolIndex);
+    });
+    
+    // Check and update pools (in reverse order to avoid index issues)
+    const poolIndices = Array.from(poolsToCheck).sort((a, b) => b - a);
+    poolIndices.forEach(poolIndex => {
+        const pool = currentJsonData.pool[poolIndex];
+        if (!pool) return;
+        
+        // If pool is empty, remove it
+        if (!pool.gamelist || pool.gamelist.length === 0) {
+            console.log(`  ⚠️ Pool ${poolIndex} is now empty, removing...`);
+            currentJsonData.pool.splice(poolIndex, 1);
+        } else {
+            // Check if we need to update the pool entry to point to new top machine
+            const firstMachine = pool.gamelist[0];
+            if (firstMachine && firstMachine.sId && pool.src) {
+                // If the current src doesn't include the first machine's sId, update it
+                if (!pool.src.includes(firstMachine.sId)) {
+                    console.log(`  🔄 Updating pool ${poolIndex} to use new top machine: ${firstMachine.id} (sId: ${firstMachine.sId})`);
+                    
+                    // Extract the old sId from src and replace with new one
+                    const srcMatch = pool.src.match(/\/OSM[^_]+/);
+                    if (srcMatch) {
+                        const oldSId = srcMatch[0].substring(1); // Remove leading /
+                        pool.src = pool.src.replace(oldSId, firstMachine.sId);
+                        
+                        if (pool.channel && pool.channel.toLowerCase().includes(oldSId.toLowerCase())) {
+                            pool.channel = pool.channel.replace(new RegExp(oldSId, 'gi'), firstMachine.sId);
+                        }
+                        
+                        console.log(`  📝 Updated pool src: ${pool.src}`);
+                    }
+                }
+            }
+        }
+    });
     
     // Update the raw JSON editor
     document.getElementById('jsonEditor').value = JSON.stringify(currentJsonData, null, 2);
@@ -698,7 +822,9 @@ function deleteMachine(poolIndex, machineIndex) {
     // Update status
     const machineCount = countMachines(currentJsonData);
     document.getElementById('editJsonStatus').innerHTML = 
-        `<p style="color: #f0883e;">⚠️ Machine deleted. ${machineCount} machines remaining. Click "Save to Server" to apply changes.</p>`;
+        `<p style="color: #3fb950;">✅ Successfully deleted ${toDelete.length} machine(s). ${machineCount} machines remaining. Click "Save to Server" to apply changes.</p>`;
+    
+    console.log(`✅ Batch delete completed: ${toDelete.length} machines removed`);
 }
 
 function toggleJsonView() {
@@ -752,14 +878,42 @@ async function saveJsonToServer() {
         return;
     }
     
-    // Validate JSON
+    // Validate JSON syntax
+    statusDiv.innerHTML = '<p style="color: #f0883e;">🔍 Validating JSON...</p>';
+    
+    let parsedJson;
     try {
-        JSON.parse(jsonContent);
+        parsedJson = JSON.parse(jsonContent);
     } catch (e) {
-        CommonUtils.showAlert(`Invalid JSON: ${e.message}`, 'error');
+        statusDiv.innerHTML = `<p style="color: #ff7b72;">❌ Invalid JSON syntax: ${e.message}</p>`;
+        CommonUtils.showAlert(`Invalid JSON syntax: ${e.message}`, 'error');
         return;
     }
     
+    // Validate JSON structure
+    if (!parsedJson.pool || !Array.isArray(parsedJson.pool)) {
+        statusDiv.innerHTML = `<p style="color: #ff7b72;">❌ Invalid JSON structure: missing 'pool' array</p>`;
+        CommonUtils.showAlert('Invalid JSON structure: missing "pool" array', 'error');
+        return;
+    }
+    
+    // Check for required fields in each pool entry
+    let structureValid = true;
+    let errorMsg = '';
+    parsedJson.pool.forEach((pool, index) => {
+        if (!pool.gamelist || !Array.isArray(pool.gamelist)) {
+            structureValid = false;
+            errorMsg = `Pool entry ${index} is missing 'gamelist' array`;
+        }
+    });
+    
+    if (!structureValid) {
+        statusDiv.innerHTML = `<p style="color: #ff7b72;">❌ Invalid JSON structure: ${errorMsg}</p>`;
+        CommonUtils.showAlert(`Invalid JSON structure: ${errorMsg}`, 'error');
+        return;
+    }
+    
+    console.log('✅ JSON validation passed');
     statusDiv.innerHTML = '<p style="color: #58a6ff;">🔄 Saving JSON to server...</p>';
     
     try {
@@ -774,7 +928,7 @@ async function saveJsonToServer() {
         
         if (response.status === 'success') {
             const result = response.results[0];
-            if (result.success) {
+            if (result.status === 'success') {
                 const machineCount = countMachines(currentJsonData);
                 statusDiv.innerHTML = `<p style="color: #3fb950;">✅ Successfully saved ${machineCount} machines to ${serverIp}</p>`;
                 CommonUtils.showAlert('JSON saved successfully!', 'success');
@@ -791,6 +945,98 @@ async function saveJsonToServer() {
     }
 }
 
+async function searchMachineInServers() {
+    const searchTerm = document.getElementById('machineSearchBox').value.trim();
+    
+    if (!searchTerm) {
+        CommonUtils.showAlert('Please enter a machine ID to search', 'error');
+        return;
+    }
+    
+    if (editServers.length === 0) {
+        CommonUtils.showAlert('No servers loaded. Please open the Edit JSON modal first.', 'error');
+        return;
+    }
+    
+    console.log(`🔍 Searching for machine ID: "${searchTerm}" across ${editServers.length} servers...`);
+    
+    const statusDiv = document.getElementById('editJsonStatus');
+    statusDiv.innerHTML = `<p style="color: #58a6ff;">🔄 Searching for "${searchTerm}" across ${editServers.length} servers...</p>`;
+    
+    const remotePath = document.getElementById('editRemotePath').value;
+    let foundInServer = null;
+    let foundMachines = [];
+    
+    try {
+        // Search through each server
+        for (const server of editServers) {
+            try {
+                const response = await CommonUtils.apiRequest('/image-recon-json/fetch-json-from-server', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        server_ip: server.ip,
+                        remote_path: remotePath
+                    })
+                });
+                
+                if (response.status === 'success') {
+                    const jsonData = JSON.parse(response.content);
+                    
+                    // Search through all machines in this server
+                    if (jsonData.pool && jsonData.pool.gamelist) {
+                        for (const pool of jsonData.pool.gamelist) {
+                            if (pool.gamelist && Array.isArray(pool.gamelist)) {
+                                for (const machine of pool.gamelist) {
+                                    const machineId = machine.id || '';
+                                    // Check if machine ID contains the search term (case-insensitive, partial match)
+                                    if (machineId.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                        machineId.includes(searchTerm)) {
+                                        foundMachines.push({
+                                            id: machineId,
+                                            pool: pool.channel,
+                                            gametype: pool.gametype
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // If we found machines in this server, stop searching
+                    if (foundMachines.length > 0) {
+                        foundInServer = server;
+                        break;
+                    }
+                }
+            } catch (err) {
+                console.warn(`⚠️ Failed to search server ${server.ip}:`, err);
+                // Continue to next server
+            }
+        }
+        
+        if (foundInServer && foundMachines.length > 0) {
+            console.log(`✅ Found ${foundMachines.length} machine(s) in server ${foundInServer.ip}`);
+            
+            // Show results in status
+            const machineList = foundMachines.map(m => m.id).join(', ');
+            statusDiv.innerHTML = `<p style="color: #3fb950;">✅ Found ${foundMachines.length} machine(s) in <strong>${foundInServer.label || foundInServer.ip}</strong>: ${machineList}</p>`;
+            
+            // Automatically select and load that server
+            selectServerForEdit(foundInServer.ip);
+            
+            CommonUtils.showAlert(`Found ${foundMachines.length} machine(s) in ${foundInServer.label || foundInServer.ip}!`, 'success');
+        } else {
+            console.log(`❌ No machines found matching: "${searchTerm}"`);
+            statusDiv.innerHTML = `<p style="color: #ff7b72;">❌ No machines found matching "${searchTerm}" across ${editServers.length} servers</p>`;
+            CommonUtils.showAlert(`No machines found matching "${searchTerm}"`, 'error');
+        }
+    } catch (error) {
+        console.error('❌ Search error:', error);
+        statusDiv.innerHTML = `<p style="color: #ff7b72;">❌ Search failed: ${error.message}</p>`;
+        CommonUtils.showAlert(`Search failed: ${error.message}`, 'error');
+    }
+}
+
 function closeEditJsonModal() {
     const modal = document.getElementById('editJsonModal');
     if (modal) {
@@ -799,6 +1045,10 @@ function closeEditJsonModal() {
     currentEditServer = null;
     currentJsonData = null;
     showingRawJson = false;
+    
+    // Clear search box
+    const searchBox = document.getElementById('machineSearchBox');
+    if (searchBox) searchBox.value = '';
 }
 
 // Close modal when clicking outside of it
@@ -822,5 +1072,8 @@ window.showEditJsonModal = showEditJsonModal;
 window.selectServerForEdit = selectServerForEdit;
 window.saveJsonToServer = saveJsonToServer;
 window.closeEditJsonModal = closeEditJsonModal;
-window.deleteMachine = deleteMachine;
 window.toggleJsonView = toggleJsonView;
+window.toggleSelectAll = toggleSelectAll;
+window.updateDeleteButtonState = updateDeleteButtonState;
+window.batchDeleteMachines = batchDeleteMachines;
+window.searchMachineInServers = searchMachineInServers;
